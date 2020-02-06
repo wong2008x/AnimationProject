@@ -4,7 +4,6 @@
 #include "simple_mesh.h"
 
 #include <fbxsdk.h>
-#include "fnv1a.h"
 #include <fstream>
 #include <vector>
 #include <unordered_map>
@@ -104,7 +103,10 @@ FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* ou
 				simpleMesh.verts = new end::simple_vert[simpleMesh.vert_count];
 				for (uint32_t j = 0; j < simpleMesh.vert_count; j++)
 				{
-					simpleMesh.verts[j].pos = DirectX::XMFLOAT4{ (float)mesh->GetControlPointAt(j).mData[0], (float)mesh->GetControlPointAt(j).mData[1], (float)mesh->GetControlPointAt(j).mData[2], (float)mesh->GetControlPointAt(j).mData[3] };
+					simpleMesh.verts[j].pos = DirectX::XMFLOAT3{ 
+						(float)mesh->GetControlPointAt(j).mData[0], 
+						(float)mesh->GetControlPointAt(j).mData[1],
+						(float)mesh->GetControlPointAt(j).mData[2] };
 				}
 				// getting indices array and count from fbx
 				simpleMesh.index_count = mesh->GetPolygonVertexCount();
@@ -144,14 +146,14 @@ FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* ou
 						(float)fbxTangents->GetAt(j).mData[0],
 						(float)fbxTangents->GetAt(j).mData[1],
 						(float)fbxTangents->GetAt(j).mData[2],
-						(float)fbxTangents->GetAt(j).mData[3] };
+					};
 				};
 
 				delete[] simpleMesh.verts;
 				simpleMesh.verts = verts2;
 
 				unsigned int numIndices = 0;
-				std::unordered_map<end::simple_vert, unsigned int, end::Hash> uniqueValues;
+				std::unordered_map<end::simple_vert, uint64_t,end::fnv1a> uniqueValues;
 				std::vector<end::simple_vert> vertices;
 				std::vector<unsigned int> indicesVector;
 
@@ -176,16 +178,16 @@ FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* ou
 				std::ofstream file(output_file_path, std::ios_base::binary | std::ios_base::trunc);
 				if (file.is_open())
 				{
-					int size = (int)vertices.size();
-					file.write((const char*)&size, sizeof(int));
+					uint32_t size = static_cast<uint32_t>(vertices.size());
+					file.write((const char*)&size, sizeof(uint32_t));
 					file.write((const char*)vertices.data(), sizeof(end::simple_vert) * size);
-					size = (int)indicesVector.size();
-					file.write((const char*)&size, sizeof(int));
+					size = static_cast<uint32_t>(indicesVector.size());
+					file.write((const char*)&size, sizeof(uint32_t));
 					file.write((const char*)indicesVector.data(), sizeof(uint32_t) * size);
 				}
 				file.close();
-				delete verts2;
-				delete UV;
+				delete []verts2;
+				delete []UV;
 				return 0;
 			
 		}

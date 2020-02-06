@@ -15,6 +15,7 @@ namespace end
 		XMFLOAT3 pos;
 		XMFLOAT3 norm;
 		XMFLOAT2 uv;
+		XMFLOAT3 tang;
 	};
 	struct sphere_t { XMVECTOR center; float radius; }; //Alterative: using sphere_t = float4;
 

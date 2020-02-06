@@ -10,10 +10,10 @@ namespace end
 
 	struct simple_vert
 	{
-		DirectX::XMFLOAT4 pos;
+		DirectX::XMFLOAT3 pos;
 		DirectX::XMFLOAT3 norm;
 		DirectX::XMFLOAT2 tex;
-		DirectX::XMFLOAT4 tangent;
+		DirectX::XMFLOAT3 tangent;
 		bool operator==(const simple_vert& n) const
 		{
 			if ((pos.x != n.pos.x) ||
@@ -51,22 +51,29 @@ namespace end
 		//DirectX::XMFLOAT4 binormals;
 
 	};
-	struct Hash
+	struct fnv1a
 	{
-		size_t operator()(const skinned_vert v) const
+	
+		private:
+			uint64_t fnv1a_hash(const uint8_t* bytes, size_t count) const
+			{
+				const uint64_t FNV_offset_basis = 0xcbf29ce484222325;
+				const uint64_t FNV_prime = 0x100000001b3;
+
+				uint64_t hash = FNV_offset_basis;
+
+				for (size_t i = 0; i < count; ++i)
+					hash = (hash ^ bytes[i]) * FNV_prime;
+
+				return hash;
+			}
+
+		public: 
+			template<typename T>
+			uint64_t operator()(const T& t) const
 		{
-			size_t pos = std::hash<float>()(v.pos.x) ^ std::hash<float>()(v.pos.y) ^ std::hash<float>()(v.pos.z) ^ std::hash<float>()(v.pos.w);
-			size_t norm = std::hash<float>()(v.norm.x) ^ std::hash<float>()(v.norm.y) ^ std::hash<float>()(v.norm.z);
-			size_t tex = std::hash<float>()(v.tex.x) ^ std::hash<float>()(v.tex.y);
-			return (pos ^ norm ^ tex);
+				return fnv1a_hash((const uint8_t*)&t, sizeof(T));
 		}
 
-		size_t operator()(const simple_vert v) const
-		{
-			size_t pos = std::hash<float>()(v.pos.x) ^ std::hash<float>()(v.pos.y) ^ std::hash<float>()(v.pos.z) ^ std::hash<float>()(v.pos.w);
-			size_t norm = std::hash<float>()(v.norm.x) ^ std::hash<float>()(v.norm.y) ^ std::hash<float>()(v.norm.z);
-			size_t tex = std::hash<float>()(v.tex.x) ^ std::hash<float>()(v.tex.y);
-			return (pos ^ norm ^ tex);
-		}
 	};
 }
