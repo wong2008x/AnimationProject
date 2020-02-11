@@ -17,6 +17,12 @@ namespace end
 		XMFLOAT2 uv;
 		XMFLOAT3 tang;
 	};
+
+	struct lightCons
+	{
+		XMFLOAT4 dLightDir;
+		XMFLOAT4 dLightClr;
+	};
 	struct sphere_t { XMVECTOR center; float radius; }; //Alterative: using sphere_t = float4;
 
 	struct aabb_t

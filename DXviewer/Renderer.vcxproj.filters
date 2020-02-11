@@ -16,6 +16,9 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{2765e612-6d0c-4edb-bead-240a404fc994}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TextureLoader">
+      <UniqueIdentifier>{1d8d6660-e39c-446a-ac9a-672b1ef4d82f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -44,6 +47,9 @@
     </ClCompile>
     <ClCompile Include="frustum_culling.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WICTextureLoader.cpp">
+      <Filter>TextureLoader</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -88,6 +94,9 @@
     </ClInclude>
     <ClInclude Include="frustum_culling.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WICTextureLoader.h">
+      <Filter>TextureLoader</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

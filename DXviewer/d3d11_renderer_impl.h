@@ -6,7 +6,7 @@
 #include <d3d11_2.h>
 #include <random>
 #include <ctime>
-
+#include "WICTextureLoader.h"
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "DXGI.lib")
@@ -70,6 +70,8 @@ namespace end
 
 		D3D11_VIEWPORT				view_port[VIEWPORT::COUNT]{};
 
+		ID3D11ShaderResourceView* texture_resource[TEXTURE_RESOURCE::COUNT]{};
+
 		std::unique_ptr<DirectX::Mouse> m_pMouse;
 		DirectX::Mouse::ButtonStateTracker m_MouseTracker;
 		std::unique_ptr<DirectX::Keyboard> m_pKeyboard;
@@ -85,6 +87,7 @@ namespace end
 		double delta = 0;
 		bool colorchange=false;
 
+		lightCons lightingConstant;
 		Camera myCam;
 		frustum_t myFrustum;
 		XMMATRIX m_Lookat =XMMatrixIdentity();
@@ -105,6 +108,9 @@ namespace end
 		const XMVECTOR DefaultUp = { 0,1,0,0 };
 		const XMVECTOR DefaultForward = { 0,0,1,0 };
 		const XMVECTOR DefaultRight = { 1,0,0,0 };
+
+		std::vector<simpleVert> mageVert;
+		std::vector<uint32_t> mageIndex;
 		/* Add more as needed...
 		ID3D11SamplerState*			sampler_state[STATE_SAMPLER::COUNT]{};
 
@@ -147,12 +153,18 @@ namespace end
 			m_ViewMatrix =XMMatrixLookAtLH(eyepos, focus, up);
 			//default_view.view_mat = (float4x4_a&)XMMatrixInverse(nullptr, m_ViewMatrix);
 			default_view.proj_mat = (float4x4_a&)XMMatrixPerspectiveFovLH(3.1415926f / 4.0f, aspect, 0.01f, 100.0f);
+			lightingConstant.dLightClr = { 0.7f,0.7f,0.5f,1.0f };
+			lightingConstant.dLightDir = { -0.557f,-0.557f,0.557f,1 };
+
+			
 			timer.Restart();
 		}
 
 		void draw_view(view_t& view)
 		{
 			timer.Signal();
+			D3D11_MAPPED_SUBRESOURCE gpuBuffer;
+			ZeroMemory(&gpuBuffer, sizeof(gpuBuffer));
 			const float4 black{ 0.0f, 0.0f, 0.0f, 1.0f };
 
 			context->OMSetDepthStencilState(depthStencilState[STATE_DEPTH_STENCIL::DEFAULT], 1);
@@ -187,13 +199,48 @@ namespace end
 
 			context->VSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::MVP]);
 
-			context->UpdateSubresource(constant_buffer[CONSTANT_BUFFER::MVP], 0, NULL, &mvp, 0, 0);
+			//context->UpdateSubresource(constant_buffer[CONSTANT_BUFFER::MVP], 0, NULL, &mvp, 0, 0);
+			HRESULT hr = context->Map(constant_buffer[CONSTANT_BUFFER::MVP], 0, D3D11_MAP_WRITE_DISCARD, 0, &gpuBuffer);
+			*((MVP_t*)(gpuBuffer.pData)) = mvp;
+			context->Unmap(constant_buffer[CONSTANT_BUFFER::MVP], 0);
 
 			context->UpdateSubresource(vertex_buffer[VERTEX_BUFFER::COLORED_VERTEX], 0, NULL, debug_renderer::get_line_verts(), 0, 0);
 
 			context->Draw(debug_renderer::get_line_vert_count(), 0);
 
 			debug_renderer::clear_lines();
+
+
+			UINT meshStrides[] = { sizeof(simpleVert) };
+			UINT meshoffsets[] = { 0 };
+
+			mvp.modeling = XMMatrixIdentity()*XMMatrixRotationY(XMConvertToRadians(180));
+			context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			context->IASetVertexBuffers(0, 1, &vertex_buffer[VERTEX_BUFFER::SIMPLEMESH], meshStrides, meshoffsets);
+			context->IASetIndexBuffer(index_buffer[INDEX_BUFFER::SIMPLEMESH], DXGI_FORMAT_R32_UINT, 0);
+			context->VSSetShader(vertex_shader[VERTEX_SHADER::SIMPLEMESH], nullptr, 0);
+			context->PSSetShader(pixel_shader[PIXEL_SHADER::SIMPLEMESH], nullptr, 0);
+			context->PSSetShaderResources(0,2,texture_resource);
+
+			context->IASetInputLayout(input_layout[INPUT_LAYOUT::SIMPLEMESH]);
+			context->VSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::MVP]);
+			context->PSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::LIGHT]);
+			context->UpdateSubresource(constant_buffer[CONSTANT_BUFFER::MVP], 0, NULL, &mvp, 0, 0);
+			XMVECTOR temp= XMLoadFloat4(&lightingConstant.dLightDir);
+			temp = XMVector4Transform(temp, XMMatrixRotationY(XMConvertToRadians(50 * timer.Delta())));
+			XMStoreFloat4(&lightingConstant.dLightDir, temp);
+			//context->UpdateSubresource(constant_buffer[CONSTANT_BUFFER::LIGHT], 0, NULL, &lightingConstant, 0, 0);
+			
+			context->Map(constant_buffer[CONSTANT_BUFFER::MVP], 0, D3D11_MAP_WRITE_DISCARD, 0, &gpuBuffer);
+			*((MVP_t*)(gpuBuffer.pData)) = mvp;
+			context->Unmap(constant_buffer[CONSTANT_BUFFER::MVP], 0);
+
+			ZeroMemory(&gpuBuffer,sizeof(gpuBuffer));
+			hr = context->Map(constant_buffer[CONSTANT_BUFFER::LIGHT], 0, D3D11_MAP_WRITE_DISCARD, 0, &gpuBuffer);
+			*((lightCons*)(gpuBuffer.pData)) = lightingConstant;
+			context->Unmap(constant_buffer[CONSTANT_BUFFER::LIGHT], 0);
+
+			context->DrawIndexed(mageIndex.size(), 0, 0);
 
 			swapchain->Present(1, 0);
 		}
@@ -233,6 +280,9 @@ namespace end
 				safe_release(ptr);
 
 			for (auto& ptr : render_target)
+				safe_release(ptr);
+
+			for (auto& ptr : texture_resource)
 				safe_release(ptr);
 
 			safe_release(context);
@@ -406,8 +456,59 @@ namespace end
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 				{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 			};
+
 			device->CreateInputLayout(InputLayout, 2, vs_clr.data(), vs_clr.size(), &input_layout[INPUT_LAYOUT::COLORED_VERTEX]);
 
+
+
+			load_fbx_model("..//Assets//BattleMageMesh.bin", mageVert, mageIndex);
+
+
+			D3D11_BUFFER_DESC BufferDesc;
+			ZeroMemory(&BufferDesc, sizeof(BufferDesc));
+			BufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+			BufferDesc.ByteWidth = sizeof(simpleVert) * mageVert.size();
+			BufferDesc.CPUAccessFlags = NULL;
+			BufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+			BufferDesc.MiscFlags = 0;
+			BufferDesc.StructureByteStride = 0;
+			D3D11_SUBRESOURCE_DATA VerticesData;
+			ZeroMemory(&VerticesData, sizeof(VerticesData));
+			VerticesData.pSysMem = mageVert.data();
+			 hr = device->CreateBuffer(&BufferDesc, &VerticesData, &vertex_buffer[VERTEX_BUFFER::SIMPLEMESH]);
+
+			ZeroMemory(&BufferDesc, sizeof(BufferDesc));
+			BufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+			BufferDesc.ByteWidth = sizeof(uint32_t) * mageIndex.size();
+			BufferDesc.CPUAccessFlags = NULL;
+			BufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+			BufferDesc.MiscFlags = 0;
+			BufferDesc.StructureByteStride = 0;
+			ZeroMemory(&VerticesData, sizeof(VerticesData));
+			VerticesData.pSysMem = mageIndex.data();
+			hr = device->CreateBuffer(&BufferDesc, &VerticesData, &index_buffer[INDEX_BUFFER::SIMPLEMESH]);
+
+			binary_blob_t vs_mesh = load_binary_blob("vs_simpleVerts.cso");
+			binary_blob_t ps_mesh = load_binary_blob("ps_simpleVerts.cso");
+
+			hr = device->CreateVertexShader(vs_mesh.data(), vs_mesh.size(), NULL, &vertex_shader[VERTEX_SHADER::SIMPLEMESH]);
+
+			hr =CreateWICTextureFromFile(device, L"..//Assets//PPG_3D_Player_D.png",NULL,&texture_resource[TEXTURE_RESOURCE::MAGE_DIFFUSE]);
+			hr = CreateWICTextureFromFile(device, L"..//Assets//PPG_3D_Player_spec.png", NULL, &texture_resource[TEXTURE_RESOURCE::MAGE_SPEC]);
+			assert(!FAILED(hr));
+
+			hr = device->CreatePixelShader(ps_mesh.data(), ps_mesh.size(), NULL, &pixel_shader[PIXEL_SHADER::SIMPLEMESH]);
+
+			assert(!FAILED(hr));
+
+			D3D11_INPUT_ELEMENT_DESC InputLayout1[] =
+			{
+				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+				{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+                { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+				{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			};
+			device->CreateInputLayout(InputLayout1, 4, vs_mesh.data(), vs_mesh.size(), &input_layout[INPUT_LAYOUT::SIMPLEMESH]);
 		}
 
 		void create_constant_buffers()
@@ -415,12 +516,21 @@ namespace end
 			D3D11_BUFFER_DESC mvp_bd;
 			ZeroMemory(&mvp_bd, sizeof(mvp_bd));
 
-			mvp_bd.Usage = D3D11_USAGE_DEFAULT;
+			mvp_bd.Usage = D3D11_USAGE_DYNAMIC;
 			mvp_bd.ByteWidth = sizeof(MVP_t);
 			mvp_bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-			mvp_bd.CPUAccessFlags = 0;
+			mvp_bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
 			HRESULT hr = device->CreateBuffer(&mvp_bd, NULL, &constant_buffer[CONSTANT_BUFFER::MVP]);
+
+			D3D11_BUFFER_DESC light_bd;
+			ZeroMemory(&light_bd, sizeof(light_bd));
+
+			light_bd.Usage = D3D11_USAGE_DYNAMIC;
+			light_bd.ByteWidth = sizeof(lightCons);
+			light_bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+			light_bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+			hr = device->CreateBuffer(&mvp_bd, NULL, &constant_buffer[CONSTANT_BUFFER::LIGHT]);
 		}
 
 		void create_debug_renderer()
@@ -560,7 +670,7 @@ namespace end
 			XMMATRIX temp=myCam.GetMatrix();
 			myCam.UpdateCamera();
 			m_ViewMatrix=myCam.GetMatrix();
-			calculate_frustum(myFrustum, m_Matrix);
+			/*calculate_frustum(myFrustum, m_Matrix);
 			for (size_t i = 0; i < 5; i++)
 			{
 				if (aabb_to_frustum(myAABBs[i], myFrustum))
@@ -572,7 +682,7 @@ namespace end
 					myAABBs[i].color = (XMFLOAT4)DirectX::Colors::Aqua;
 				}
 				drawAABB(myAABBs[i]);
-			}
+			}*/
 		
 
 			if (keyState.IsKeyDown(Keyboard::Up))

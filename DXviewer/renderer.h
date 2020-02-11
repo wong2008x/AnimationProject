@@ -51,15 +51,17 @@ namespace end
 	};
 
 	struct CONSTANT_BUFFER {
-		enum { MVP = 0, COUNT };
+		enum { MVP = 0,LIGHT,COUNT };
 	};
-
+	struct TEXTURE_RESOURCE {
+		enum { MAGE_DIFFUSE=0, MAGE_SPEC, MAGE_NORMAL, COUNT};
+	};
 	struct VERTEX_SHADER {
-		enum { BUFFERLESS_CUBE = 0, COLORED_VERTEX, COUNT };
+		enum { BUFFERLESS_CUBE = 0, COLORED_VERTEX,SIMPLEMESH, COUNT };
 	};
 
 	struct PIXEL_SHADER {
-		enum { BUFFERLESS_CUBE = 0, COLORED_VERTEX, COUNT };
+		enum { BUFFERLESS_CUBE = 0, COLORED_VERTEX, SIMPLEMESH, COUNT };
 	};
 
 	struct VIEW_RENDER_TARGET {
@@ -67,11 +69,11 @@ namespace end
 	};
 
 	struct INDEX_BUFFER {
-		enum { DEFAULT = 0, COUNT };
+		enum { DEFAULT = 0, SIMPLEMESH, COUNT };
 	};
 
 	struct INPUT_LAYOUT {
-		enum { COLORED_VERTEX = 0, COUNT };
+		enum { COLORED_VERTEX = 0, SIMPLEMESH, COUNT };
 	};
 
 	struct STATE_RASTERIZER {
@@ -87,7 +89,7 @@ namespace end
 	};
 
 	struct VERTEX_BUFFER {
-		enum { COLORED_VERTEX = 0,PARTICLES, COUNT };
+		enum { COLORED_VERTEX = 0,SIMPLEMESH, COUNT };
 	};
 
 	/* Add more as needed...
