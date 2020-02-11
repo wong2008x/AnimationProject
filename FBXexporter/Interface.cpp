@@ -80,12 +80,43 @@ FBXEXPORTER_API int get_scene_poly_count(const char* fbx_file_path)
 
 FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* output_file_path, const char* mesh_name)
 {
-
+	std::vector<end::material_t> materials;
+	std::vector<end::file_path_t> paths;
 	FbxScene* scene = nullptr;
 	FbxManager* sdk_manager = create_and_import(fbx_file_path, scene);
 
 	if (!scene)
 		return -1;
+
+	//int num_mats = scene->GetMaterialCount();
+	//for (int m = 0; m < num_mats; ++m)
+	//{
+	//	end::material_t my_mat;
+	//	FbxSurfaceMaterial* mat = scene->GetMaterial(m);
+	//	if (mat->Is<FbxSurfaceLambert>() == false) // Non-standard material, skip for now
+	//		continue;
+	//	FbxSurfaceLambert* lam = (FbxSurfaceLambert*)mat;
+	//	FbxDouble3 diffuse_color = lam->Diffuse.Get();
+	//	FbxDouble diffuse_factor = lam->DiffuseFactor.Get();
+	//	my_mat[end::material_t::DIFFUSE].value = diffuse_color;
+	//	my_mat[end::material_t::DIFFUSE].factor = diffuse_factor;
+	//		if (FbxFileTexture* file_texture = lam->Diffuse.GetSrcObject<FbxFileTexture>())
+	//		{
+	//			const char* file_name = file_texture->GetRelativeFileName();
+	//			end::file_path_t file_path;
+	//			strcpy(file_path.data(), file_name);
+	//			my_mat[end::material_t::DIFFUSE].input = paths.size();
+	//			paths.push_back(file_path);
+	//		}
+	//	// Get emissive property as above
+	//	// ...
+	//	if (mat->Is<FbxSurfacePhong>())
+	//	{
+	//		// Get specular related properties...
+	//	}
+	//	// add my_mat materials vector...
+	//}
+
 	FbxNode* childNode = nullptr;
 	int childCount = scene->GetRootNode()->GetChildCount();
 	for (int i = 0; i < childCount; i++)

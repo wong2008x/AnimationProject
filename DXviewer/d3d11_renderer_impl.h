@@ -220,16 +220,15 @@ namespace end
 			context->IASetIndexBuffer(index_buffer[INDEX_BUFFER::SIMPLEMESH], DXGI_FORMAT_R32_UINT, 0);
 			context->VSSetShader(vertex_shader[VERTEX_SHADER::SIMPLEMESH], nullptr, 0);
 			context->PSSetShader(pixel_shader[PIXEL_SHADER::SIMPLEMESH], nullptr, 0);
-			context->PSSetShaderResources(0,2,texture_resource);
+			context->PSSetShaderResources(0,3,texture_resource);
 
 			context->IASetInputLayout(input_layout[INPUT_LAYOUT::SIMPLEMESH]);
 			context->VSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::MVP]);
 			context->PSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::LIGHT]);
-			context->UpdateSubresource(constant_buffer[CONSTANT_BUFFER::MVP], 0, NULL, &mvp, 0, 0);
-			XMVECTOR temp= XMLoadFloat4(&lightingConstant.dLightDir);
-			temp = XMVector4Transform(temp, XMMatrixRotationY(XMConvertToRadians(50 * timer.Delta())));
-			XMStoreFloat4(&lightingConstant.dLightDir, temp);
-			//context->UpdateSubresource(constant_buffer[CONSTANT_BUFFER::LIGHT], 0, NULL, &lightingConstant, 0, 0);
+		
+			
+			lightingConstant.dLightDir = XMVector4Transform(lightingConstant.dLightDir, XMMatrixRotationY(XMConvertToRadians(50 * timer.Delta())));
+
 			
 			context->Map(constant_buffer[CONSTANT_BUFFER::MVP], 0, D3D11_MAP_WRITE_DISCARD, 0, &gpuBuffer);
 			*((MVP_t*)(gpuBuffer.pData)) = mvp;
@@ -495,6 +494,7 @@ namespace end
 
 			hr =CreateWICTextureFromFile(device, L"..//Assets//PPG_3D_Player_D.png",NULL,&texture_resource[TEXTURE_RESOURCE::MAGE_DIFFUSE]);
 			hr = CreateWICTextureFromFile(device, L"..//Assets//PPG_3D_Player_spec.png", NULL, &texture_resource[TEXTURE_RESOURCE::MAGE_SPEC]);
+			hr = CreateWICTextureFromFile(device, L"..//Assets//PPG_3D_Player_emissive.png", NULL, &texture_resource[TEXTURE_RESOURCE::MAGE_EMISSIVE]);
 			assert(!FAILED(hr));
 
 			hr = device->CreatePixelShader(ps_mesh.data(), ps_mesh.size(), NULL, &pixel_shader[PIXEL_SHADER::SIMPLEMESH]);
