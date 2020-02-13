@@ -7,6 +7,8 @@
 #include <random>
 #include <ctime>
 #include "WICTextureLoader.h"
+#include "../FBXexporter/e_material.h"
+#include <fstream>
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "DXGI.lib")
@@ -14,7 +16,6 @@
 
 #include "renderer.h"
 #include "Camera.h"
-//#include "debug_renderer.h"
 #include "frustum_culling.h"
 #include "view.h"
 #include "blob.h"
@@ -70,7 +71,7 @@ namespace end
 
 		D3D11_VIEWPORT				view_port[VIEWPORT::COUNT]{};
 
-		ID3D11ShaderResourceView* texture_resource[TEXTURE_RESOURCE::COUNT]{};
+		ID3D11ShaderResourceView* player_texture_resource[TEXTURE_RESOURCE::COUNT]{};
 
 		std::unique_ptr<DirectX::Mouse> m_pMouse;
 		DirectX::Mouse::ButtonStateTracker m_MouseTracker;
@@ -111,6 +112,7 @@ namespace end
 
 		std::vector<simpleVert> mageVert;
 		std::vector<uint32_t> mageIndex;
+		std::vector<XMMATRIX>poseTransfrom;
 		/* Add more as needed...
 		ID3D11SamplerState*			sampler_state[STATE_SAMPLER::COUNT]{};
 
@@ -139,6 +141,8 @@ namespace end
 			create_debug_renderer();
 			
 			create_constant_buffers();
+
+
 
 			MatrixInit();
 
@@ -220,7 +224,7 @@ namespace end
 			context->IASetIndexBuffer(index_buffer[INDEX_BUFFER::SIMPLEMESH], DXGI_FORMAT_R32_UINT, 0);
 			context->VSSetShader(vertex_shader[VERTEX_SHADER::SIMPLEMESH], nullptr, 0);
 			context->PSSetShader(pixel_shader[PIXEL_SHADER::SIMPLEMESH], nullptr, 0);
-			context->PSSetShaderResources(0,3,texture_resource);
+			context->PSSetShaderResources(0,3, player_texture_resource);
 
 			context->IASetInputLayout(input_layout[INPUT_LAYOUT::SIMPLEMESH]);
 			context->VSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::MVP]);
@@ -265,7 +269,7 @@ namespace end
 
 			for (auto& ptr : index_buffer)
 				safe_release(ptr);
-
+			
 			for (auto& ptr : vertex_buffer)
 				safe_release(ptr);
 
@@ -281,7 +285,7 @@ namespace end
 			for (auto& ptr : render_target)
 				safe_release(ptr);
 
-			for (auto& ptr : texture_resource)
+			for (auto& ptr : player_texture_resource)
 				safe_release(ptr);
 
 			safe_release(context);
@@ -492,9 +496,8 @@ namespace end
 
 			hr = device->CreateVertexShader(vs_mesh.data(), vs_mesh.size(), NULL, &vertex_shader[VERTEX_SHADER::SIMPLEMESH]);
 
-			hr =CreateWICTextureFromFile(device, L"..//Assets//PPG_3D_Player_D.png",NULL,&texture_resource[TEXTURE_RESOURCE::MAGE_DIFFUSE]);
-			hr = CreateWICTextureFromFile(device, L"..//Assets//PPG_3D_Player_spec.png", NULL, &texture_resource[TEXTURE_RESOURCE::MAGE_SPEC]);
-			hr = CreateWICTextureFromFile(device, L"..//Assets//PPG_3D_Player_emissive.png", NULL, &texture_resource[TEXTURE_RESOURCE::MAGE_EMISSIVE]);
+			load_material("..//Assets//BattleMageMesh.mat",player_texture_resource);
+	
 			assert(!FAILED(hr));
 
 			hr = device->CreatePixelShader(ps_mesh.data(), ps_mesh.size(), NULL, &pixel_shader[PIXEL_SHADER::SIMPLEMESH]);
@@ -510,7 +513,50 @@ namespace end
 			};
 			device->CreateInputLayout(InputLayout1, 4, vs_mesh.data(), vs_mesh.size(), &input_layout[INPUT_LAYOUT::SIMPLEMESH]);
 		}
+		
+		void load_material(const char* path, ID3D11ShaderResourceView** textureResource)
+		{
+			std::vector<dev5::material_t> materials;
+			std::vector<dev5::file_path_t> paths;
+			std::fstream load{ path, std::ios_base::in | std::ios_base::binary };
 
+			assert(load.is_open());
+
+			if (!load.is_open())
+			{
+				assert(false);
+				return;
+			}
+
+			uint32_t mat_num;
+			uint32_t path_num;
+			load.read((char*)&mat_num, sizeof(uint32_t));
+			materials.resize(mat_num);
+			load.read((char*)materials.data(), sizeof(dev5::material_t) * mat_num);
+			load.read((char*)&path_num, sizeof(uint32_t));
+			paths.resize(path_num);
+			load.read((char*)paths.data(), sizeof(dev5::file_path_t) * path_num);
+			load.close();
+
+			std::wstring wString(paths[materials[0][dev5::material_t::DIFFUSE].input].begin(), paths[materials[0][dev5::material_t::DIFFUSE].input].end());
+			const wchar_t* relativePath=L"..\\Assets\\";
+			wString=relativePath + wString;
+			const wchar_t* convertedFilePath = wString.c_str();
+
+			CreateWICTextureFromFile(device, convertedFilePath, NULL, &textureResource[TEXTURE_RESOURCE::MAGE_DIFFUSE]);
+
+			wString.assign(paths[materials[0][dev5::material_t::EMISSIVE].input].begin(), paths[materials[0][dev5::material_t::EMISSIVE].input].end());
+			wString = relativePath + wString;
+			convertedFilePath = wString.c_str();
+
+			CreateWICTextureFromFile(device, convertedFilePath, NULL, &textureResource[TEXTURE_RESOURCE::MAGE_EMISSIVE]);
+
+			wString.assign(paths[materials[0][dev5::material_t::SPECULAR].input].begin(), paths[materials[0][dev5::material_t::SPECULAR].input].end());
+			wString = relativePath + wString;
+			convertedFilePath = wString.c_str();
+
+			CreateWICTextureFromFile(device, convertedFilePath, NULL, &textureResource[TEXTURE_RESOURCE::MAGE_SPEC]);
+		}
 		void create_constant_buffers()
 		{
 			D3D11_BUFFER_DESC mvp_bd;

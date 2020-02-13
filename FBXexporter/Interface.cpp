@@ -2,6 +2,7 @@
 #include "pch.h" 
 #include "InterFace.h"
 #include "simple_mesh.h"
+#include "e_material.h"
 
 #include <fbxsdk.h>
 #include <fstream>
@@ -15,6 +16,7 @@
 #include <crtdbg.h>
 #define new new( _CLIENT_BLOCK, __FILE__, __LINE__)
 #endif
+
 
 using namespace DirectX;
 FbxManager* create_and_import(const char* fbx_file_path, FbxScene*& lScene)
@@ -80,42 +82,12 @@ FBXEXPORTER_API int get_scene_poly_count(const char* fbx_file_path)
 
 FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* output_file_path, const char* mesh_name)
 {
-	std::vector<end::material_t> materials;
-	std::vector<end::file_path_t> paths;
+
 	FbxScene* scene = nullptr;
 	FbxManager* sdk_manager = create_and_import(fbx_file_path, scene);
 
 	if (!scene)
 		return -1;
-
-	//int num_mats = scene->GetMaterialCount();
-	//for (int m = 0; m < num_mats; ++m)
-	//{
-	//	end::material_t my_mat;
-	//	FbxSurfaceMaterial* mat = scene->GetMaterial(m);
-	//	if (mat->Is<FbxSurfaceLambert>() == false) // Non-standard material, skip for now
-	//		continue;
-	//	FbxSurfaceLambert* lam = (FbxSurfaceLambert*)mat;
-	//	FbxDouble3 diffuse_color = lam->Diffuse.Get();
-	//	FbxDouble diffuse_factor = lam->DiffuseFactor.Get();
-	//	my_mat[end::material_t::DIFFUSE].value = diffuse_color;
-	//	my_mat[end::material_t::DIFFUSE].factor = diffuse_factor;
-	//		if (FbxFileTexture* file_texture = lam->Diffuse.GetSrcObject<FbxFileTexture>())
-	//		{
-	//			const char* file_name = file_texture->GetRelativeFileName();
-	//			end::file_path_t file_path;
-	//			strcpy(file_path.data(), file_name);
-	//			my_mat[end::material_t::DIFFUSE].input = paths.size();
-	//			paths.push_back(file_path);
-	//		}
-	//	// Get emissive property as above
-	//	// ...
-	//	if (mat->Is<FbxSurfacePhong>())
-	//	{
-	//		// Get specular related properties...
-	//	}
-	//	// add my_mat materials vector...
-	//}
 
 	FbxNode* childNode = nullptr;
 	int childCount = scene->GetRootNode()->GetChildCount();
@@ -226,3 +198,165 @@ FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* ou
 	return -1;
 }
 
+FBXEXPORTER_API int export_material(const char* fbx_file_path, const char* output_file_path, const char* mesh_name)
+{
+	std::vector<dev5::material_t> materials;
+	std::vector<dev5::file_path_t> paths;
+	FbxScene* scene = nullptr;
+	FbxManager* sdk_manager = create_and_import(fbx_file_path, scene);
+
+	int num_mats = scene->GetMaterialCount();
+	for (int m = 0; m < num_mats; ++m)
+	{
+			dev5::material_t my_mat;
+			FbxSurfaceMaterial* mat = scene->GetMaterial(m);
+			if (mat->Is<FbxSurfaceLambert>() == false) // Non-standard material, skip for now
+				continue;
+			FbxSurfaceLambert* lam = (FbxSurfaceLambert*)mat;
+
+			
+
+		// Get emissive property as above
+			FbxDouble3 emissive_color = lam->Emissive.Get();
+			FbxDouble emissive_factor = lam->EmissiveFactor.Get();
+			my_mat[dev5::material_t::EMISSIVE].value[0] = (float)emissive_color.mData[0];
+			my_mat[dev5::material_t::EMISSIVE].value[1] = (float)emissive_color.mData[1];
+			my_mat[dev5::material_t::EMISSIVE].value[2] = (float)emissive_color.mData[2];
+			my_mat[dev5::material_t::EMISSIVE].factor = emissive_factor;
+			if (FbxFileTexture* file_texture = lam->Emissive.GetSrcObject<FbxFileTexture>())
+			{
+				const char* file_name = file_texture->GetRelativeFileName();
+				dev5::file_path_t file_path;
+				strcpy(file_path.data(), file_name);
+				my_mat[dev5::material_t::EMISSIVE].input = paths.size();
+				paths.push_back(file_path);
+			}
+
+			FbxDouble3 diffuse_color = lam->Diffuse.Get();
+			FbxDouble diffuse_factor = lam->DiffuseFactor.Get();
+			my_mat[dev5::material_t::DIFFUSE].value[0] = (float)diffuse_color.mData[0];
+			my_mat[dev5::material_t::DIFFUSE].value[1] = (float)diffuse_color.mData[1];
+			my_mat[dev5::material_t::DIFFUSE].value[2] = (float)diffuse_color.mData[2];
+			my_mat[dev5::material_t::DIFFUSE].factor = diffuse_factor;
+			if (FbxFileTexture* file_texture = lam->Diffuse.GetSrcObject<FbxFileTexture>())
+			{
+				const char* file_name = file_texture->GetRelativeFileName();
+				dev5::file_path_t file_path;
+				strcpy(file_path.data(), file_name);
+				my_mat[dev5::material_t::DIFFUSE].input = paths.size();
+				paths.push_back(file_path);
+			}
+		// ...
+		if (mat->Is<FbxSurfacePhong>())
+		{
+			// Get specular related properties...
+			FbxSurfacePhong* phong = (FbxSurfacePhong*)mat;
+			FbxDouble3 specular_color = phong->Specular.Get();
+			FbxDouble specular_factor = phong->SpecularFactor.Get();
+			my_mat[dev5::material_t::SPECULAR].value[0] = (float)specular_color.mData[0];
+			my_mat[dev5::material_t::SPECULAR].value[1] = (float)specular_color.mData[1];
+			my_mat[dev5::material_t::SPECULAR].value[2] = (float)specular_color.mData[2];
+			my_mat[dev5::material_t::SPECULAR].factor = specular_factor;
+			if (FbxFileTexture* file_texture = phong->Specular.GetSrcObject<FbxFileTexture>())
+			{
+				const char* file_name = file_texture->GetRelativeFileName();
+				dev5::file_path_t file_path;
+				strcpy(file_path.data(), file_name);
+				my_mat[dev5::material_t::SPECULAR].input = paths.size();
+				paths.push_back(file_path);
+			}
+		}
+		// add my_mat materials vector...
+		materials.push_back(my_mat);;
+	}
+
+	std::ofstream file(output_file_path, std::ios_base::binary | std::ios_base::trunc);
+	if (file.is_open())
+	{
+		uint32_t size = static_cast<uint32_t>(materials.size());
+		file.write((const char*)&size, sizeof(uint32_t));
+		file.write((const char*)materials.data(), sizeof(dev5::material_t) * size);
+		size = static_cast<uint32_t>(paths.size());
+		file.write((const char*)&size, sizeof(uint32_t));
+		file.write((const char*)paths.data(), sizeof(dev5::file_path_t) * size);
+	}
+	file.close();
+	return num_mats;
+ }
+
+FBXEXPORTER_API int export_bindpose(const char* fbx_file_path, const char* output_file_path, const char* mesh_name)
+{
+
+	int result = -1;
+	FbxScene* scene = nullptr;
+	FbxManager* sdk_manager = create_and_import(fbx_file_path, scene);
+
+	if (!scene)
+		return result;
+	FbxNode* childNode = nullptr;
+	int childCount = scene->GetRootNode()->GetChildCount();
+	for (int i = 0; i < childCount; i++)
+	{
+		childNode = scene->GetRootNode()->GetChild(i);
+		FbxMesh* mesh = childNode->GetMesh();
+		if (mesh)
+		{
+			if (!mesh_name || mesh_name == mesh->GetName())
+			{
+				int posecount = scene->GetPoseCount();
+				FbxPose* pose = scene->GetPose(0);
+				FbxMesh* poseMesh = pose->GetNode(0)->GetMesh();
+				std::vector<end::fbx_Joint> joints;
+				if (pose->IsBindPose())
+				{
+					posecount = pose->GetCount();
+					for (int i = 0; i < posecount; i++)
+					{
+						FbxSkeleton* skele = pose->GetNode(i)->GetSkeleton();
+						if (skele && skele->IsSkeletonRoot())
+						{
+							end::fbx_Joint joint;
+							joint.node = pose->GetNode(i);
+							joint.parent_index = -1;
+							joints.push_back(joint);
+							for (int j = 0; j < joints.size(); j++)
+							{
+								for (int k = 0; k < joints[j].node->GetChildCount(); k++)
+								{
+									joint.node = joints[j].node->GetChild(k);
+									joint.parent_index = j;
+									joints.push_back(joint);
+								}
+							}
+							break;
+						}
+					}
+				}
+
+				std::vector<DirectX::XMMATRIX> inversedBindMatrices;
+				for (size_t i = 0; i < joints.size(); i++)
+				{
+					FbxAMatrix mat = joints[i].node->EvaluateGlobalTransform();
+					XMMATRIX xmat;
+					for (size_t j = 0; j < 4; j++)
+						xmat.r[j] = { (float)mat.mData[j].mData[0], (float)mat.mData[j].mData[1], (float)mat.mData[j].mData[2], (float)mat.mData[j].mData[3] };
+
+					//xmat = XMMatrixScaling(3.25f, 3.25f, 3.25f) * xmat;
+					xmat = XMMatrixInverse(nullptr, xmat);
+					inversedBindMatrices.push_back(xmat);
+				}
+
+				std::ofstream file(output_file_path, std::ios_base::binary | std::ios_base::trunc);
+				if (file.is_open())
+				{
+					size_t size = inversedBindMatrices.size();
+					file.write((const char*)&size, sizeof(size_t));
+					file.write((const char*)inversedBindMatrices.data(), sizeof(DirectX::XMMATRIX) * inversedBindMatrices.size());
+				}
+				file.close();
+				return 0;
+			}
+		}
+	}
+	return result;
+}

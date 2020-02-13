@@ -30,6 +30,9 @@
     <ClInclude Include="simple_mesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="e_material.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">

@@ -13,4 +13,6 @@ namespace end
 	binary_blob_t load_binary_blob(const char* path);
 
 	void load_fbx_model(const char* path, std::vector<simpleVert>& vert, std::vector<uint32_t>& indicies);
+
+
 }

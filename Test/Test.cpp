@@ -9,6 +9,8 @@ int main()
 	int number = get_scene_poly_count("..//Assets//BattleMage.fbx");
 	std::cout << number;
 	int cool = export_simple_mesh("..//Assets//BattleMage.fbx","..//Assets//BattleMageMesh.bin");
+	int iscool = export_material("..//Assets//BattleMage.fbx", "..//Assets//BattleMageMesh.mat");
+	int testout = export_bindpose("..//Assets//BattleMage.fbx", "..//Assets//BattleMagebind.bin");
 
 	system("pause");
 }

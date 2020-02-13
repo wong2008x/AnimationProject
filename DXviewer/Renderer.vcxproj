@@ -151,6 +151,7 @@
     <ClCompile Include="XTime.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\FBXexporter\e_material.h" />
     <ClInclude Include="blob.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="d3d11_renderer_impl.h" />
