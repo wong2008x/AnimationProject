@@ -6,11 +6,12 @@
 int main()
 {
     std::cout << "Hello World!\n";
-	int number = get_scene_poly_count("..//Assets//BattleMage.fbx");
+	int number = get_scene_poly_count("..//Assets//BattleMageRun.fbx");
 	std::cout << number;
-	int cool = export_simple_mesh("..//Assets//BattleMage.fbx","..//Assets//BattleMageMesh.bin");
-	int iscool = export_material("..//Assets//BattleMage.fbx", "..//Assets//BattleMageMesh.mat");
-	int testout = export_bindpose("..//Assets//BattleMage.fbx", "..//Assets//BattleMagebind.bin");
+	int cool = export_simple_mesh("..//Assets//BattleMageRun.fbx","..//Assets//BattleMageMesh.bin");
+	int iscool = export_material("..//Assets//BattleMageRun.fbx", "..//Assets//BattleMageMesh.mat");
+	int testout = export_bindpose("..//Assets//BattleMageRun.fbx", "..//Assets//BattleMagebind.bin");
+	int testAnim = export_animation("..//Assets//BattleMageRun.fbx", "..//Assets//BattleMageRun.anim");
 
 	system("pause");
 }

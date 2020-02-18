@@ -78,9 +78,7 @@ namespace end
 		std::unique_ptr<DirectX::Keyboard> m_pKeyboard;
 		DirectX::Keyboard::KeyboardStateTracker m_KeyboardTracker;
 
-		sorted_pool_t <particle, 256> sortedpool;
-		pool_t<particle, 1024> freepool;
-		emitter fp_emit[4];
+
 
 		float3 startingPos = {0,0,0};
 		XTime timer;
@@ -112,7 +110,9 @@ namespace end
 
 		std::vector<simpleVert> mageVert;
 		std::vector<uint32_t> mageIndex;
-		std::vector<XMMATRIX>poseTransfrom;
+		std::vector<joint>poseJoint;
+
+		anim_clip AnimClip;
 		/* Add more as needed...
 		ID3D11SamplerState*			sampler_state[STATE_SAMPLER::COUNT]{};
 
@@ -142,9 +142,12 @@ namespace end
 			
 			create_constant_buffers();
 
-
-
 			MatrixInit();
+
+
+			load_pose("..//Assets//BattleMagebind.bin",poseJoint);
+
+			load_animation("..//Assets//BattleMageRun.anim",AnimClip);
 
 			m_pMouse = std::make_unique<Mouse>();
 			m_pKeyboard = std::make_unique<Keyboard>();
@@ -579,6 +582,57 @@ namespace end
 			hr = device->CreateBuffer(&mvp_bd, NULL, &constant_buffer[CONSTANT_BUFFER::LIGHT]);
 		}
 
+		void load_pose(const char* path, std::vector<joint>& poseJoint)
+		{
+			std::fstream load{ path, std::ios_base::in | std::ios_base::binary };
+
+			assert(load.is_open());
+
+			if (!load.is_open())
+			{
+				assert(false);
+				return;
+			}
+			uint32_t size;
+			load.read((char*)&size, sizeof(uint32_t));
+			poseJoint.resize(size);
+			load.read((char*)poseJoint.data(), sizeof(joint) * poseJoint.size());
+			
+			for (size_t i = 0; i < poseJoint.size(); i++)
+			{
+				//poseJoint[i].global_xform = XMMatrixInverse(nullptr, poseJoint[i].global_xform);
+				poseJoint[i].global_xform = poseJoint[i].global_xform* XMMatrixTranslation(-5, 0, 0)* XMMatrixRotationY(XMConvertToRadians(180));
+			}
+			
+		
+			load.close();
+		}
+
+		void load_animation(const char* path, anim_clip& myAnim)
+		{
+			std::fstream load{ path, std::ios_base::in | std::ios_base::binary };
+
+			assert(load.is_open());
+
+			if (!load.is_open())
+			{
+				assert(false);
+				return;
+			}
+			uint32_t size;
+			load.read((char*)&myAnim.duration,sizeof(double));
+			load.read((char*)&size, sizeof(uint32_t));
+			myAnim.frames.resize(size);
+			for (uint32_t i = 0; i < size; i++)
+			{
+				uint32_t jointSize;
+				load.read((char*)&jointSize, sizeof(uint32_t));
+				myAnim.frames[i].joints.resize(jointSize);
+				load.read((char*)myAnim.frames[i].joints.data(), sizeof(joint) * myAnim.frames[i].joints.size());
+				load.read((char*)&myAnim.frames[i].time, sizeof(double));
+			}
+			load.close();
+		}
 		void create_debug_renderer()
 		{
 			
@@ -625,6 +679,18 @@ namespace end
 				debug_renderer::add_line(XMFLOAT3{ i - 11.f ,0 , 10.f }, XMFLOAT3{ i - 11.f, 0, -11.f }, color);
 				debug_renderer::add_line(XMFLOAT3{ -11.f ,0 , i - 11.f }, XMFLOAT3{ 10.f ,0 , i - 11.f }, color);
 			}
+		}
+
+		void DrawPoseTransform(joint& myJoint)
+		{
+			XMVECTOR pos = myJoint.global_xform.r[3];
+
+			XMVECTOR Xaxis = pos + XMVector3Normalize(myJoint.global_xform.r[0]) * 0.2f;
+			XMVECTOR Yaxis = pos + XMVector3Normalize(myJoint.global_xform.r[1]) * 0.2f;
+			XMVECTOR Zaxis = pos + XMVector3Normalize(myJoint.global_xform.r[2]) * 0.2f;
+			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Xaxis),XMVectorGetY(Xaxis),XMVectorGetZ(Xaxis) }, colours[0]);
+			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Yaxis),XMVectorGetY(Yaxis),XMVectorGetZ(Yaxis) }, colours[1]);
+			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Zaxis),XMVectorGetY(Zaxis),XMVectorGetZ(Zaxis) }, colours[2]);
 		}
 		void MatrixInit()
 		{
@@ -748,34 +814,19 @@ namespace end
 				m_Matrix =  XMMatrixRotationY(dtime*cameraSpeed*5)* m_Matrix;
 			}
 
-
-			XMVECTOR pos = m_Matrix.r[3];
-
-			XMVECTOR Xaxis = pos + XMVector3Normalize(m_Matrix.r[0]) *0.8f;
-			XMVECTOR Yaxis = pos + XMVector3Normalize(m_Matrix.r[1]) * 0.8f;
-			XMVECTOR Zaxis = pos + XMVector3Normalize(m_Matrix.r[2]) *0.8f;
-			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Xaxis),XMVectorGetY(Xaxis),XMVectorGetZ(Xaxis) }, colours[0]);
-			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Yaxis),XMVectorGetY(Yaxis),XMVectorGetZ(Yaxis) }, colours[1]);
-			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Zaxis),XMVectorGetY(Zaxis),XMVectorGetZ(Zaxis) }, colours[2]);
-
-
-			pos = m_Lookat.r[3];
-			XMMATRIX t_Lookat = LookAt(pos, m_Matrix.r[3]);
-			 Xaxis = pos + XMVector3Normalize(t_Lookat.r[0]) *0.8f;
-			 Yaxis = pos + XMVector3Normalize(t_Lookat.r[1]) * 0.8f;
-			 Zaxis = pos + XMVector3Normalize(t_Lookat.r[2]) *0.8f;
-			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Xaxis),XMVectorGetY(Xaxis),XMVectorGetZ(Xaxis) }, colours[0]);
-			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Yaxis),XMVectorGetY(Yaxis),XMVectorGetZ(Yaxis) }, colours[1]);
-			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Zaxis),XMVectorGetY(Zaxis),XMVectorGetZ(Zaxis) }, colours[2]);
-
-			pos = m_Turnto.r[3];
-			m_Turnto = TurnTo(m_Turnto, m_Matrix.r[3],0.1f);
-			Xaxis = pos + XMVector3Normalize(m_Turnto.r[0]) *0.8f;
-			Yaxis = pos + XMVector3Normalize(m_Turnto.r[1]) * 0.8f;
-			Zaxis = pos + XMVector3Normalize(m_Turnto.r[2]) *0.8f;
-			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Xaxis),XMVectorGetY(Xaxis),XMVectorGetZ(Xaxis) }, colours[0]);
-			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Yaxis),XMVectorGetY(Yaxis),XMVectorGetZ(Yaxis) }, colours[1]);
-			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Zaxis),XMVectorGetY(Zaxis),XMVectorGetZ(Zaxis) }, colours[2]);
+			for (size_t i = 0; i < poseJoint.size(); i++)
+			{
+				
+				DrawPoseTransform(poseJoint[i]);
+				XMFLOAT3 pos1;
+				XMFLOAT3 pos2;
+				XMStoreFloat3(&pos1,poseJoint[i].global_xform.r[3]);
+				if(poseJoint[i].parent_index>=0)
+				{ 
+				XMStoreFloat3(&pos2, poseJoint[poseJoint[i].parent_index].global_xform.r[3]);
+				debug_renderer::add_line(pos1, pos2, (XMFLOAT4)DirectX::Colors::Azure);
+				}
+			}
 		}
 
 		

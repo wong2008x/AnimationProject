@@ -333,25 +333,26 @@ FBXEXPORTER_API int export_bindpose(const char* fbx_file_path, const char* outpu
 					}
 				}
 
-				std::vector<DirectX::XMMATRIX> inversedBindMatrices;
+				std::vector<end::joint> myJoints;
 				for (size_t i = 0; i < joints.size(); i++)
 				{
+					end::joint tempjoint;
 					FbxAMatrix mat = joints[i].node->EvaluateGlobalTransform();
 					XMMATRIX xmat;
 					for (size_t j = 0; j < 4; j++)
 						xmat.r[j] = { (float)mat.mData[j].mData[0], (float)mat.mData[j].mData[1], (float)mat.mData[j].mData[2], (float)mat.mData[j].mData[3] };
-
-					//xmat = XMMatrixScaling(3.25f, 3.25f, 3.25f) * xmat;
-					xmat = XMMatrixInverse(nullptr, xmat);
-					inversedBindMatrices.push_back(xmat);
+					//xmat = XMMatrixInverse(nullptr, xmat);
+					tempjoint.global_xform = xmat;
+					tempjoint.parent_index = joints[i].parent_index;
+					myJoints.push_back(tempjoint);
 				}
 
 				std::ofstream file(output_file_path, std::ios_base::binary | std::ios_base::trunc);
 				if (file.is_open())
 				{
-					size_t size = inversedBindMatrices.size();
-					file.write((const char*)&size, sizeof(size_t));
-					file.write((const char*)inversedBindMatrices.data(), sizeof(DirectX::XMMATRIX) * inversedBindMatrices.size());
+					uint32_t size = myJoints.size();
+					file.write((const char*)&size, sizeof(uint32_t));
+					file.write((const char*)myJoints.data(), sizeof(end::joint) * myJoints.size());
 				}
 				file.close();
 				return 0;
@@ -359,4 +360,99 @@ FBXEXPORTER_API int export_bindpose(const char* fbx_file_path, const char* outpu
 		}
 	}
 	return result;
+}
+extern "C" FBXEXPORTER_API int export_animation(const char* fbx_file_path, const char* output_file_path, const char* mesh_name)
+{
+	int result = -1;
+	FbxScene* scene = nullptr;
+	FbxManager* sdk_manager = create_and_import(fbx_file_path, scene);
+
+	if (!scene)
+		return result;
+	FbxNode* childNode = nullptr;
+	int childCount = scene->GetRootNode()->GetChildCount();
+	for (int i = 0; i < childCount; i++)
+	{
+		childNode = scene->GetRootNode()->GetChild(i);
+		FbxMesh* mesh = childNode->GetMesh();
+		if (mesh)
+		{
+			if (!mesh_name || mesh_name == mesh->GetName())
+			{
+				int posecount = scene->GetPoseCount();
+				FbxPose* pose = scene->GetPose(0);
+				std::vector<end::fbx_Joint> joints;
+				if (pose->IsBindPose())
+				{
+					posecount = pose->GetCount();
+					for (int i = 0; i < posecount; i++)
+					{
+						FbxSkeleton* skele = pose->GetNode(i)->GetSkeleton();
+						if (skele && skele->IsSkeletonRoot())
+						{
+							end::fbx_Joint joint;
+							joint.node = pose->GetNode(i);
+							joint.parent_index = -1;
+							joints.push_back(joint);
+							for (int j = 0; j < joints.size(); j++)
+							{
+								for (int k = 0; k < joints[j].node->GetChildCount(); k++)
+								{
+									joint.node = joints[j].node->GetChild(k);
+									joint.parent_index = j;
+									joints.push_back(joint);
+								}
+							}
+							break;
+						}
+					}
+				}
+
+				FbxAnimStack* animstack = scene->GetCurrentAnimationStack();
+				FbxTimeSpan lifespan = animstack->GetLocalTimeSpan();
+				FbxTime animTime = lifespan.GetDuration();
+				end::anim_clip animClip;
+				animClip.duration = animTime.GetSecondDouble();
+				FbxLongLong frames = animTime.GetFrameCount(FbxTime::EMode::eFrames24);
+				for (FbxLongLong i = 1; i < frames; i++)
+				{
+					animTime.SetFrame(i, FbxTime::EMode::eFrames24);
+					end::keyframe mykeyframe;
+					mykeyframe.time = animTime.GetSecondDouble();
+					for (size_t j = 0; j < joints.size(); j++)
+					{
+						FbxAMatrix mat = joints[j].node->EvaluateGlobalTransform(animTime);
+
+						end::joint animTransform;
+						for (size_t j = 0; j < 4; j++)
+							animTransform.global_xform.r[j] = { (float)mat.mData[j].mData[0], (float)mat.mData[j].mData[1], (float)mat.mData[j].mData[2], (float)mat.mData[j].mData[3] };
+						animTransform.parent_index = joints[j].parent_index;
+
+						mykeyframe.joints.push_back(animTransform.global_xform);
+					}
+					
+					animClip.frames.push_back(mykeyframe);
+				}
+				std::ofstream file(output_file_path, std::ios_base::binary | std::ios_base::trunc);
+				if (file.is_open())
+				{
+					uint32_t size= animClip.frames.size();
+
+					file.write((const char*)&animClip.duration, sizeof(double));
+					file.write((const char*)&size, sizeof(uint32_t));
+					for (uint32_t i = 0; i < size; i++)
+					{
+						uint32_t jointSize = animClip.frames[i].joints.size();
+						file.write((const char*)&jointSize,sizeof(uint32_t));
+						file.write((const char*)animClip.frames[i].joints.data(), sizeof(end::joint) * animClip.frames[i].joints.size());
+						file.write((const char*)&animClip.frames[i].time, sizeof(double));
+					}
+				}
+				file.close();
+				return 0;
+			}
+		}
+	}
+	return result;
+	
 }

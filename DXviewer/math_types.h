@@ -6,6 +6,7 @@
 #include <cmath>
 #include <DirectXMath.h>
 #include <DirectXColors.h>
+#include <vector>
 
 using namespace DirectX;
 namespace end
@@ -17,11 +18,26 @@ namespace end
 		XMFLOAT2 uv;
 		XMFLOAT3 tang;
 	};
-
+	struct joint
+	{
+		XMMATRIX global_xform;
+		int parent_index;
+	};
 	struct lightCons
 	{
 		XMVECTOR dLightDir;
 		XMVECTOR dLightClr;
+	};
+	struct keyframe
+	{
+		double time;
+		std::vector<XMMATRIX> myjoints;
+	};
+
+	struct anim_clip
+	{
+		double duration;
+		std::vector<keyframe> frames;
 	};
 	struct sphere_t { XMVECTOR center; float radius; }; //Alterative: using sphere_t = float4;
 

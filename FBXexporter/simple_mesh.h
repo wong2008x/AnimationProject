@@ -2,7 +2,7 @@
 #include <fbxsdk.h>
 #include <directxmath.h>
 #include <array>
-
+#include <vector>
 namespace end
 {
 	class alignas(8) float2 : std::array<float, 2> {};
@@ -53,6 +53,8 @@ namespace end
 
 	};
 
+
+
 	struct fbx_Joint
 	{
 		FbxNode* node;
@@ -63,6 +65,18 @@ namespace end
 	{ 
 		DirectX::XMMATRIX global_xform;
 		int parent_index; 
+	};
+
+	struct keyframe
+	{
+		double time;
+		std::vector<DirectX::XMMATRIX> joints;
+	};
+
+	struct anim_clip
+	{
+		double duration;
+		std::vector<keyframe> frames;
 	};
 	struct fnv1a
 	{

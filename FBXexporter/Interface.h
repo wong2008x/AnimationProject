@@ -14,7 +14,7 @@ extern "C" FBXEXPORTER_API int export_material(const char* fbx_file_path, const 
 //
 extern "C" FBXEXPORTER_API int export_bindpose(const char* fbx_file_path, const char* output_file_path, const char* mesh_name = nullptr);
 //
-//extern "C" FBXEXPORTER_API int export_animation(const char* fbx_file_path, const char* output_file_path, const char* mesh_name = nullptr);
+extern "C" FBXEXPORTER_API int export_animation(const char* fbx_file_path, const char* output_file_path, const char* mesh_name = nullptr);
 //
 //extern "C" FBXEXPORTER_API void LoadAnimations(const char** pchFilepath, int nAnimationCount);
 //
