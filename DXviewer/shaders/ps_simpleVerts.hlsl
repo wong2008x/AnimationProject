@@ -21,12 +21,12 @@ struct VSOut
 //{
 //    float4 color : SV_TARGET;
 //};
-static const float4 ambient_light = { 0.25f, 0.25f, 0.25f, 0.0f };
+static const float4 ambient_light = { 0.7f, 0.7f, 0.7f, 0.0f };
 
 float4 main(VSOut input) : SV_TARGET
 {
     //PS_OUTPUT output;
-    float4 specClr = {1,1,1,64 };
+    float4 specClr = {1,1,1,32 };
     input.normal = normalize(input.normal);
     
    //loat3 light_dir = dLightPos.xyz - input.world_pos.xyz;

@@ -31,7 +31,7 @@ namespace end
 	struct keyframe
 	{
 		double time;
-		std::vector<XMMATRIX> myjoints;
+		std::vector<joint> joints;
 	};
 
 	struct anim_clip

@@ -82,9 +82,10 @@ namespace end
 
 		float3 startingPos = {0,0,0};
 		XTime timer;
+		
 		XMFLOAT4 colours[3] = { {1,0,0,1},{0,1,0,1},{0,0,1,1} };
 		double delta = 0;
-		bool colorchange=false;
+		
 
 		lightCons lightingConstant;
 		Camera myCam;
@@ -110,9 +111,13 @@ namespace end
 
 		std::vector<simpleVert> mageVert;
 		std::vector<uint32_t> mageIndex;
-		std::vector<joint>poseJoint;
+		std::vector<joint>myJoint;
 
-		anim_clip AnimClip;
+		anim_clip animClip;
+		XTime animTimer;
+		int animStep;
+		double currentTime = 0;
+		bool AnimCtrl = false;
 		/* Add more as needed...
 		ID3D11SamplerState*			sampler_state[STATE_SAMPLER::COUNT]{};
 
@@ -145,9 +150,9 @@ namespace end
 			MatrixInit();
 
 
-			load_pose("..//Assets//BattleMagebind.bin",poseJoint);
+			load_pose("..//Assets//BattleMagebind.bin",myJoint);
 
-			load_animation("..//Assets//BattleMageRun.anim",AnimClip);
+			load_animation("..//Assets//BattleMageRun.anim",animClip);
 
 			m_pMouse = std::make_unique<Mouse>();
 			m_pKeyboard = std::make_unique<Keyboard>();
@@ -165,6 +170,8 @@ namespace end
 
 			
 			timer.Restart();
+			animTimer.Restart();
+			animStep = 0;
 		}
 
 		void draw_view(view_t& view)
@@ -600,7 +607,6 @@ namespace end
 			
 			for (size_t i = 0; i < poseJoint.size(); i++)
 			{
-				//poseJoint[i].global_xform = XMMatrixInverse(nullptr, poseJoint[i].global_xform);
 				poseJoint[i].global_xform = poseJoint[i].global_xform* XMMatrixTranslation(-5, 0, 0)* XMMatrixRotationY(XMConvertToRadians(180));
 			}
 			
@@ -629,6 +635,10 @@ namespace end
 				load.read((char*)&jointSize, sizeof(uint32_t));
 				myAnim.frames[i].joints.resize(jointSize);
 				load.read((char*)myAnim.frames[i].joints.data(), sizeof(joint) * myAnim.frames[i].joints.size());
+				for (size_t j = 0; j < myAnim.frames[i].joints.size(); j++)
+				{
+					myAnim.frames[i].joints[j] .global_xform = myAnim.frames[i].joints[j].global_xform * XMMatrixTranslation(5, 0, 0) * XMMatrixRotationY(XMConvertToRadians(180));
+				}
 				load.read((char*)&myAnim.frames[i].time, sizeof(double));
 			}
 			load.close();
@@ -650,25 +660,7 @@ namespace end
 			device->CreateBuffer(&BufferDesc, &VerticesData, &vertex_buffer[VERTEX_BUFFER::COLORED_VERTEX]);
 		}
 
-		//particle InitParticle(emitter& _emitt)
-		//{
-		//	particle fp_particle;
-		//	fp_particle.color = _emitt.spawn_color;
-		//	fp_particle.pos = _emitt.spawn_pos;
-		//	fp_particle.prev_pos = fp_particle.pos;
-		//	fp_particle.velocity = { 0, (rand() % 20 + 100) / 10.f, 0 };
-		//	fp_particle.acceleration = { ((rand() % 100 - 50) / 5.f), -9.8f, ((rand() % 100 - 50) / 5.f) };
-		//	fp_particle.lifetime = (rand() % 70 + 50) / 100.f;
-		//	return fp_particle;
-		//}
-		//void UpdateParticle(particle &_particle)
-		//{
-		//	float dtime = static_cast<float>(timer.Delta());
-		//	_particle.prev_pos = _particle.pos;
-		//	_particle.pos += _particle.velocity * dtime + _particle.acceleration * 0.5f * dtime * dtime;
-		//	_particle.velocity += _particle.acceleration * dtime;
-		//	_particle.lifetime -= timer.Delta();
-		//}
+
 
 		void UpdateGrid()
 		{
@@ -691,6 +683,57 @@ namespace end
 			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Xaxis),XMVectorGetY(Xaxis),XMVectorGetZ(Xaxis) }, colours[0]);
 			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Yaxis),XMVectorGetY(Yaxis),XMVectorGetZ(Yaxis) }, colours[1]);
 			debug_renderer::add_line({ XMVectorGetX(pos),XMVectorGetY(pos),XMVectorGetZ(pos) }, { XMVectorGetX(Zaxis),XMVectorGetY(Zaxis),XMVectorGetZ(Zaxis) }, colours[2]);
+		}
+
+		void UpdateAnimation()
+		{
+			if (!AnimCtrl)
+			{
+				animTimer.Signal();
+				currentTime += animTimer.Delta();
+				if (currentTime > animClip.duration)
+				{
+					animTimer.Restart();
+					animStep = 0;
+					currentTime = 0;
+				}
+
+
+
+				if (animClip.frames[animStep].time < currentTime)
+				{
+					if (animStep < animClip.frames.size() - 1)
+						animStep++;
+				}
+			}
+			for (size_t i = 0; i < animClip.frames[animStep].joints.size(); i++)
+			{
+
+				DrawPoseTransform(animClip.frames[animStep].joints[i]);
+				XMFLOAT3 pos1;
+				XMFLOAT3 pos2;
+				XMStoreFloat3(&pos1, animClip.frames[animStep].joints[i].global_xform.r[3]);
+				if (animClip.frames[animStep].joints[i].parent_index != -1)
+				{
+					XMStoreFloat3(&pos2, animClip.frames[animStep].joints[animClip.frames[animStep].joints[i].parent_index].global_xform.r[3]);
+					debug_renderer::add_line(pos1, pos2, (XMFLOAT4)DirectX::Colors::Azure);
+				}
+			}
+
+			//Draw T pose
+			for (size_t i = 0; i < myJoint.size(); i++)
+			{
+
+				DrawPoseTransform(myJoint[i]);
+				XMFLOAT3 pos1;
+				XMFLOAT3 pos2;
+				XMStoreFloat3(&pos1, myJoint[i].global_xform.r[3]);
+				if (myJoint[i].parent_index != -1)
+				{
+					XMStoreFloat3(&pos2, myJoint[myJoint[i].parent_index].global_xform.r[3]);
+					debug_renderer::add_line(pos1, pos2, (XMFLOAT4)DirectX::Colors::Azure);
+				}
+			}
 		}
 		void MatrixInit()
 		{
@@ -779,6 +822,24 @@ namespace end
 				myCam.moveLeftRight += dtime * cameraSpeed*5;
 				//m_ViewMatrix = m_ViewMatrix * XMMatrixTranslation(dtime * cameraSpeed * 10, 0, 0);
 			}
+			if (keyState.IsKeyDown(Keyboard::F1))
+			{
+				AnimCtrl = !AnimCtrl;
+			}
+			if (AnimCtrl)
+			{
+				if (keyState.IsKeyDown(Keyboard::J))
+				{
+					if(animStep<animClip.frames	.size()-1)
+					animStep++;
+				}
+				if (keyState.IsKeyDown(Keyboard::K))
+				{
+					if (animStep >0)
+					animStep--;
+				}
+			}
+		
 			XMMATRIX temp=myCam.GetMatrix();
 			myCam.UpdateCamera();
 			m_ViewMatrix=myCam.GetMatrix();
@@ -814,19 +875,7 @@ namespace end
 				m_Matrix =  XMMatrixRotationY(dtime*cameraSpeed*5)* m_Matrix;
 			}
 
-			for (size_t i = 0; i < poseJoint.size(); i++)
-			{
-				
-				DrawPoseTransform(poseJoint[i]);
-				XMFLOAT3 pos1;
-				XMFLOAT3 pos2;
-				XMStoreFloat3(&pos1,poseJoint[i].global_xform.r[3]);
-				if(poseJoint[i].parent_index>=0)
-				{ 
-				XMStoreFloat3(&pos2, poseJoint[poseJoint[i].parent_index].global_xform.r[3]);
-				debug_renderer::add_line(pos1, pos2, (XMFLOAT4)DirectX::Colors::Azure);
-				}
-			}
+
 		}
 
 		
@@ -834,7 +883,7 @@ namespace end
 		{
 				UpdateGrid();
 				UpdateMatrix();
-				
+				UpdateAnimation();
 		}
 
 		

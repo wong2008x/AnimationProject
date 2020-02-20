@@ -98,18 +98,52 @@ FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* ou
 		if (mesh)
 		{
 				mesh_name = mesh->GetName();
-				end::simple_mesh simpleMesh;
+				//std::vector<end::simple_vert> simpleMesh;
+				//int poly_vert ;
+				//int point_index;
+								//int poly_count = mesh->GetPolygonCount();
+				//int* polygon_verts = mesh->GetPolygonVertices();
+				//const FbxVector4* control_points = mesh->GetControlPoints();
+				//// getting normals from fbx
+				//FbxArray<FbxVector4> normalsVec;
+				//mesh->GetPolygonVertexNormals(normalsVec);
+				//FbxLayerElementArrayTemplate<FbxVector2>* uvVertices = NULL;
+				//mesh->GetTextureUV(&uvVertices);
+				//FbxLayerElementArrayTemplate<FbxVector4>* fbxTangents;
+				//mesh->GetTangents(&fbxTangents);
+				//for (size_t j = 0; j < poly_count; j++)
+				//{
 
-				int colorCount = mesh->GetElementVertexColorCount();
-				// getting vertices and count from fbx
+				//	for (size_t v = 0; v < mesh->GetPolygonSize(j); v++)
+				//	{
+				//		end::simple_vert tempVert;
+				//		poly_vert = j * 3 + v;
+				//		point_index = polygon_verts[poly_vert];
+				//		FbxVector4 position = control_points[point_index];
+				//		tempVert.pos = DirectX::XMFLOAT3{
+				//			(float)position.mData[0],
+				//			(float)position.mData[1],
+				//			(float)position.mData[2] };
+
+				//		FbxVector2 uv = uvVertices->GetAt(mesh->GetTextureUVIndex(j, v));
+				//		FbxVector4 tangent = fbxTangents->GetAt(point_index);
+
+				//		tempVert.tex = DirectX::XMFLOAT2((float)uv.mData[0], 1 - (float)uv.mData[1]);
+				//		tempVert.norm = DirectX::XMFLOAT3{ (float)normalsVec[point_index].mData[0], (float)normalsVec[point_index].mData[1], (float)normalsVec[point_index].mData[2] };
+				//		tempVert.tangent = DirectX::XMFLOAT3{ (float)tangent.mData[0], (float)tangent.mData[1], (float)tangent.mData[2] };
+				//		simpleMesh.push_back(tempVert);
+				//	}
+				//  
+				//}
+
+
+				end::simple_mesh simpleMesh;
+					// getting vertices and count from fbx
 				simpleMesh.vert_count = mesh->GetControlPointsCount();
 				simpleMesh.verts = new end::simple_vert[simpleMesh.vert_count];
 				for (uint32_t j = 0; j < simpleMesh.vert_count; j++)
 				{
-					simpleMesh.verts[j].pos = DirectX::XMFLOAT3{ 
-						(float)mesh->GetControlPointAt(j).mData[0], 
-						(float)mesh->GetControlPointAt(j).mData[1],
-						(float)mesh->GetControlPointAt(j).mData[2] };
+					simpleMesh.verts[j].pos = DirectX::XMFLOAT3{ (float)mesh->GetControlPointAt(j).mData[0], (float)mesh->GetControlPointAt(j).mData[1], (float)mesh->GetControlPointAt(j).mData[2]};
 				}
 				// getting indices array and count from fbx
 				simpleMesh.index_count = mesh->GetPolygonVertexCount();
@@ -148,15 +182,14 @@ FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* ou
 					verts2[j].tangent = {
 						(float)fbxTangents->GetAt(j).mData[0],
 						(float)fbxTangents->GetAt(j).mData[1],
-						(float)fbxTangents->GetAt(j).mData[2],
-					};
+						(float)fbxTangents->GetAt(j).mData[2],};
 				};
 
 				delete[] simpleMesh.verts;
 				simpleMesh.verts = verts2;
 
 				unsigned int numIndices = 0;
-				std::unordered_map<end::simple_vert, uint64_t,end::fnv1a> uniqueValues;
+				std::unordered_map<end::simple_vert, unsigned int, end::fnv1a> uniqueValues;
 				std::vector<end::simple_vert> vertices;
 				std::vector<unsigned int> indicesVector;
 
@@ -166,7 +199,7 @@ FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* ou
 					v.norm = simpleMesh.verts[j].norm;
 					v.pos = simpleMesh.verts[j].pos;
 					v.tex = simpleMesh.verts[j].tex;
-					
+
 					if (uniqueValues.count(v) == 0)
 					{
 						uniqueValues.insert({ v, numIndices });
@@ -189,8 +222,8 @@ FBXEXPORTER_API int export_simple_mesh(const char* fbx_file_path, const char* ou
 					file.write((const char*)indicesVector.data(), sizeof(uint32_t) * size);
 				}
 				file.close();
-				delete []verts2;
-				delete []UV;
+				//delete []verts2;
+				//delete []UV;
 				return 0;
 			
 		}
@@ -428,7 +461,7 @@ extern "C" FBXEXPORTER_API int export_animation(const char* fbx_file_path, const
 							animTransform.global_xform.r[j] = { (float)mat.mData[j].mData[0], (float)mat.mData[j].mData[1], (float)mat.mData[j].mData[2], (float)mat.mData[j].mData[3] };
 						animTransform.parent_index = joints[j].parent_index;
 
-						mykeyframe.joints.push_back(animTransform.global_xform);
+						mykeyframe.joints.push_back(animTransform);
 					}
 					
 					animClip.frames.push_back(mykeyframe);

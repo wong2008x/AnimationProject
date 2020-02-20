@@ -33,6 +33,37 @@ namespace end
 		}
 	};
 
+
+	struct skinned_vert
+	{
+		DirectX::XMFLOAT3 pos;
+		DirectX::XMFLOAT3 norm;
+		DirectX::XMFLOAT2 tex;
+		DirectX::XMFLOAT4 weights;
+		//DirectX::XMFLOAT4 tangents;
+
+		bool operator==(const skinned_vert& n) const
+		{
+			if ((pos.x != n.pos.x) ||
+				(pos.y != n.pos.y) ||
+				(pos.z != n.pos.z) ||
+				(tex.x != n.tex.x) ||
+				(tex.y != n.tex.y) ||
+				(norm.x != n.norm.x) ||
+				(norm.y != n.norm.y) ||
+				(norm.z != n.norm.z) ||
+				(weights.x != n.weights.x) ||
+				(weights.y != n.weights.y) ||
+				(weights.z != n.weights.z) ||
+				(weights.w != n.weights.w))
+			{
+				return false;
+			}
+			else
+				return true;
+		}
+	};
+
 	struct simple_mesh
 	{
 		uint32_t vert_count = 0;
@@ -40,20 +71,14 @@ namespace end
 		simple_vert* verts = nullptr;
 		uint32_t* indices = nullptr;
 	};
-	struct skinned_vert
+
+	struct skinned_mesh
 	{
-		DirectX::XMFLOAT4 pos;
-		DirectX::XMFLOAT3 norm;
-		DirectX::XMFLOAT2 tex;
-		DirectX::XMFLOAT4 indices;
-		DirectX::XMFLOAT4 weights;
-
-		DirectX::XMFLOAT4 tangents;
-		//DirectX::XMFLOAT4 binormals;
-
+		uint32_t vert_count = 0;
+		uint32_t index_count = 0;
+		skinned_vert* verts = nullptr;
+		uint32_t* indices = nullptr;
 	};
-
-
 
 	struct fbx_Joint
 	{
@@ -70,7 +95,7 @@ namespace end
 	struct keyframe
 	{
 		double time;
-		std::vector<DirectX::XMMATRIX> joints;
+		std::vector<joint> joints;
 	};
 
 	struct anim_clip
