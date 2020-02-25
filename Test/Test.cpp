@@ -8,10 +8,12 @@ int main()
     std::cout << "Hello World!\n";
 	int number = get_scene_poly_count("..//Assets//BattleMageRun.fbx");
 	std::cout << number;
-	int cool = export_simple_mesh("..//Assets//BattleMageRun.fbx","..//Assets//BattleMageMesh.bin");
-	int iscool = export_material("..//Assets//BattleMageRun.fbx", "..//Assets//BattleMageMesh.mat");
-	int testout = export_bindpose("..//Assets//BattleMageRun.fbx", "..//Assets//BattleMagebind.bin");
+	int testSimplemesh = export_simple_mesh("..//Assets//BattleMageRun.fbx","..//Assets//BattleMageMesh.bin");
+	int testmat = export_material("..//Assets//BattleMageRun.fbx", "..//Assets//BattleMageMesh.mat");
+	int testout = export_bindpose("..//Assets//BattleMageRun.fbx", "..//Assets//BattleMageBind.bin");
 	int testAnim = export_animation("..//Assets//BattleMageRun.fbx", "..//Assets//BattleMageRun.anim");
+	int testSkinnedMesh =export_skinned_mesh("..//Assets//BattleMageRun.fbx","..//Assets//BattleMageRun.bin");
+
 
 	system("pause");
 }

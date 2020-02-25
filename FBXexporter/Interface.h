@@ -19,6 +19,3 @@ extern "C" FBXEXPORTER_API int export_animation(const char* fbx_file_path, const
 //
 extern "C" FBXEXPORTER_API int export_skinned_mesh(const char* fbx_file_path, const char* output_file_path, const char* mesh_name = nullptr);
 //
-//extern "C" FBXEXPORTER_API int export_inversed_bindpose(const char* fbx_file_path, const char* output_file_path, const char* mesh_name = nullptr);
-//
-//extern "C" FBXEXPORTER_API int export_inversed_animation(const char* fbx_file_path, const char* output_file_path, const char* mesh_name = nullptr);

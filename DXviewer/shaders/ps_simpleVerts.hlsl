@@ -17,10 +17,7 @@ struct VSOut
     float4 world_pos : POSITIONT;
     float4 eye_pos : EYEPOS;
 };
-//struct PS_OUTPUT
-//{
-//    float4 color : SV_TARGET;
-//};
+
 static const float4 ambient_light = { 0.7f, 0.7f, 0.7f, 0.0f };
 
 float4 main(VSOut input) : SV_TARGET

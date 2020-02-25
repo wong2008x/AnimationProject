@@ -1,4 +1,10 @@
-#include "mvp.hlsli"
+
+cbuffer MVP_t : register(b0)
+{
+    matrix modeling;
+    matrix view;
+    matrix projection;
+};
 
 struct VSIn
 {

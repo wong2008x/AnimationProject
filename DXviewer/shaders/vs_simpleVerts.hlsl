@@ -1,4 +1,11 @@
-#include "mvp.hlsli"
+
+
+cbuffer MVP_t : register(b0)
+{
+    matrix modeling;
+    matrix view;
+    matrix projection;
+};
 struct VSIn
 {
     float3 pos : POSITION;
@@ -17,9 +24,9 @@ struct VSOut
 VSOut main(VSIn input)
 {
     VSOut output;
-    output.world_pos = mul(float4(input.pos.xyz, 1.0f), modeling);
-    output.pos = mul(output.world_pos, view);
-    output.pos = mul(output.pos, projection);
+    output.world_pos = mul(modeling, float4(input.pos, 1.0f));
+    output.pos = mul(view, output.world_pos);
+    output.pos = mul(projection, output.pos);
     output.eye_pos.xyz = view[3].xyz;
     output.eye_pos.w = 1.0f;
     output.normal = mul(float4(input.normal.xyz, 0.0f), modeling).xyz;

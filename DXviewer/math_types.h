@@ -18,6 +18,20 @@ namespace end
 		XMFLOAT2 uv;
 		XMFLOAT3 tang;
 	};
+
+	struct skinnedVert
+	{
+		DirectX::XMFLOAT3 pos;
+		DirectX::XMFLOAT3 norm;
+		DirectX::XMFLOAT2 tex;
+		DirectX::XMFLOAT4 weights;
+		int indices[4];
+	};
+	struct mTransform
+	{
+		XMMATRIX m[28];
+	};
+
 	struct joint
 	{
 		XMMATRIX global_xform;

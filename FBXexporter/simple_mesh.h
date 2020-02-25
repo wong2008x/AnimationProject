@@ -40,7 +40,7 @@ namespace end
 		DirectX::XMFLOAT3 norm;
 		DirectX::XMFLOAT2 tex;
 		DirectX::XMFLOAT4 weights;
-		//DirectX::XMFLOAT4 tangents;
+		int indices[4];
 
 		bool operator==(const skinned_vert& n) const
 		{
@@ -78,6 +78,13 @@ namespace end
 		uint32_t index_count = 0;
 		skinned_vert* verts = nullptr;
 		uint32_t* indices = nullptr;
+	};
+
+
+	struct influence
+	{
+		int joint;
+		float weight;
 	};
 
 	struct fbx_Joint

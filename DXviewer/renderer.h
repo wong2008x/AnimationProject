@@ -51,13 +51,13 @@ namespace end
 	};
 
 	struct CONSTANT_BUFFER {
-		enum { MVP = 0,LIGHT,COUNT };
+		enum { MVP = 0,LIGHT, TRANSFORM,COUNT };
 	};
 	struct TEXTURE_RESOURCE {
 		enum { MAGE_DIFFUSE=0, MAGE_EMISSIVE, MAGE_SPEC, COUNT};
 	};
 	struct VERTEX_SHADER {
-		enum { BUFFERLESS_CUBE = 0, COLORED_VERTEX,SIMPLEMESH, COUNT };
+		enum { BUFFERLESS_CUBE = 0, COLORED_VERTEX,SIMPLEMESH, SKINNEDMESH, COUNT };
 	};
 
 	struct PIXEL_SHADER {
@@ -69,11 +69,11 @@ namespace end
 	};
 
 	struct INDEX_BUFFER {
-		enum { DEFAULT = 0, SIMPLEMESH, COUNT };
+		enum { DEFAULT = 0, SIMPLEMESH, SKINNEDMESH, COUNT };
 	};
 
 	struct INPUT_LAYOUT {
-		enum { COLORED_VERTEX = 0, SIMPLEMESH, COUNT };
+		enum { COLORED_VERTEX = 0, SIMPLEMESH, SKINNEDMESH, COUNT };
 	};
 
 	struct STATE_RASTERIZER {
@@ -89,9 +89,13 @@ namespace end
 	};
 
 	struct VERTEX_BUFFER {
-		enum { COLORED_VERTEX = 0,SIMPLEMESH, COUNT };
+		enum { COLORED_VERTEX = 0,SIMPLEMESH, SKINNEDMESH, COUNT };
 	};
 
+	struct STATE_SAMPLER
+	{
+		enum { DEFAULT = 0, COUNT };
+	};
 	/* Add more as needed...
 	enum STATE_SAMPLER{ DEFAULT = 0, COUNT };
 

@@ -73,6 +73,8 @@ namespace end
 
 		ID3D11ShaderResourceView* player_texture_resource[TEXTURE_RESOURCE::COUNT]{};
 
+		ID3D11SamplerState* sampler_state[STATE_SAMPLER::COUNT]{};
+
 		std::unique_ptr<DirectX::Mouse> m_pMouse;
 		DirectX::Mouse::ButtonStateTracker m_MouseTracker;
 		std::unique_ptr<DirectX::Keyboard> m_pKeyboard;
@@ -88,6 +90,7 @@ namespace end
 		
 
 		lightCons lightingConstant;
+		mTransform myTransform;
 		Camera myCam;
 		frustum_t myFrustum;
 		XMMATRIX m_Lookat =XMMatrixIdentity();
@@ -111,7 +114,11 @@ namespace end
 
 		std::vector<simpleVert> mageVert;
 		std::vector<uint32_t> mageIndex;
-		std::vector<joint>myJoint;
+		std::vector<joint>myJoints;
+		std::vector<joint>invJoints;
+
+		std::vector<skinnedVert>mageSkinnedVert;
+		std::vector<uint32_t> mageSkinnedIndex;
 
 		anim_clip animClip;
 		XTime animTimer;
@@ -147,10 +154,12 @@ namespace end
 			
 			create_constant_buffers();
 
+			create_sampler_state();
+
 			MatrixInit();
 
 
-			load_pose("..//Assets//BattleMagebind.bin",myJoint);
+			load_pose("..//Assets//BattleMageBind.bin",myJoints,invJoints);
 
 			load_animation("..//Assets//BattleMageRun.anim",animClip);
 
@@ -190,16 +199,12 @@ namespace end
 			context->RSSetState(rasterState[STATE_RASTERIZER::DEFAULT]);
 			context->RSSetViewports(1, &view_port[VIEWPORT::DEFAULT]);
 
-			//m_ViewMatrix = XMMatrixTranspose(XMMatrixInverse(nullptr, (XMMATRIX&)view.view_mat));
 
 			MVP_t mvp;
 
 			mvp.modeling = XMMatrixIdentity();
 			mvp.projection = XMMatrixTranspose((XMMATRIX&)view.proj_mat);
-			//view.view_mat= (float4x4_a&)XMMatrixTranspose(m_ViewMatrix);
 			mvp.view = XMMatrixTranspose(m_ViewMatrix);
-			//mvp.view = XMMatrixTranspose(m_ViewMatrix);
-			//mvp.view = XMMatrixTranspose(XMMatrixInverse(nullptr, (XMMATRIX&)view.view_mat));
 
 			UINT colorStrides[] = { sizeof(colored_vertex) };
 			UINT coloroffsets[] = { 0 };
@@ -225,36 +230,90 @@ namespace end
 			debug_renderer::clear_lines();
 
 
-			UINT meshStrides[] = { sizeof(simpleVert) };
-			UINT meshoffsets[] = { 0 };
+			//UINT meshStrides[] = { sizeof(simpleVert) };
+			//UINT meshoffsets[] = { 0 };
 
-			mvp.modeling = XMMatrixIdentity()*XMMatrixRotationY(XMConvertToRadians(180));
-			context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			context->IASetVertexBuffers(0, 1, &vertex_buffer[VERTEX_BUFFER::SIMPLEMESH], meshStrides, meshoffsets);
-			context->IASetIndexBuffer(index_buffer[INDEX_BUFFER::SIMPLEMESH], DXGI_FORMAT_R32_UINT, 0);
-			context->VSSetShader(vertex_shader[VERTEX_SHADER::SIMPLEMESH], nullptr, 0);
-			context->PSSetShader(pixel_shader[PIXEL_SHADER::SIMPLEMESH], nullptr, 0);
-			context->PSSetShaderResources(0,3, player_texture_resource);
+			//mvp.modeling = XMMatrixIdentity()*XMMatrixRotationY(XMConvertToRadians(180));
+			//context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			//context->IASetVertexBuffers(0, 1, &vertex_buffer[VERTEX_BUFFER::SIMPLEMESH], meshStrides, meshoffsets);
+			//context->IASetIndexBuffer(index_buffer[INDEX_BUFFER::SIMPLEMESH], DXGI_FORMAT_R32_UINT, 0);
+			//context->VSSetShader(vertex_shader[VERTEX_SHADER::SIMPLEMESH], nullptr, 0);
+			//context->PSSetShader(pixel_shader[PIXEL_SHADER::SIMPLEMESH], nullptr, 0);
+			//context->PSSetShaderResources(0,3, player_texture_resource);
 
-			context->IASetInputLayout(input_layout[INPUT_LAYOUT::SIMPLEMESH]);
-			context->VSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::MVP]);
-			context->PSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::LIGHT]);
+			//context->IASetInputLayout(input_layout[INPUT_LAYOUT::SIMPLEMESH]);
+			//context->VSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::MVP]);
+			//context->PSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::LIGHT]);
+			//context->PSSetSamplers(0,1,&sampler_state[STATE_SAMPLER::DEFAULT]);
 		
+			//
+			//lightingConstant.dLightDir = XMVector4Transform(lightingConstant.dLightDir, XMMatrixRotationY(XMConvertToRadians(50 * timer.Delta())));
+
+			//
+			//context->Map(constant_buffer[CONSTANT_BUFFER::MVP], 0, D3D11_MAP_WRITE_DISCARD, 0, &gpuBuffer);
+			//*((MVP_t*)(gpuBuffer.pData)) = mvp;
+			//context->Unmap(constant_buffer[CONSTANT_BUFFER::MVP], 0);
+
+			//ZeroMemory(&gpuBuffer,sizeof(gpuBuffer));
+			//hr = context->Map(constant_buffer[CONSTANT_BUFFER::LIGHT], 0, D3D11_MAP_WRITE_DISCARD, 0, &gpuBuffer);
+			//*((lightCons*)(gpuBuffer.pData)) = lightingConstant;
+			//context->Unmap(constant_buffer[CONSTANT_BUFFER::LIGHT], 0);
+
+			//context->DrawIndexed(mageIndex.size(), 0, 0);
+
+
+
+			UINT skinnedStrides[] = { sizeof(skinnedVert) };
+			UINT skinnedoffsets[] = { 0 };
+
 			
+			context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			context->IASetVertexBuffers(0, 1, &vertex_buffer[VERTEX_BUFFER::SKINNEDMESH], skinnedStrides, skinnedoffsets);
+			context->IASetIndexBuffer(index_buffer[INDEX_BUFFER::SKINNEDMESH], DXGI_FORMAT_R32_UINT, 0);
+			context->VSSetShader(vertex_shader[VERTEX_SHADER::SKINNEDMESH], nullptr, 0);
+
+			context->PSSetShader(pixel_shader[PIXEL_SHADER::SIMPLEMESH], nullptr, 0);
+			context->PSSetShaderResources(0, 3, player_texture_resource);
+
+			context->IASetInputLayout(input_layout[INPUT_LAYOUT::SKINNEDMESH]);
+			context->VSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::MVP]);
+			context->VSSetConstantBuffers(1, 1, &constant_buffer[CONSTANT_BUFFER::TRANSFORM]);
+			context->PSSetConstantBuffers(0, 1, &constant_buffer[CONSTANT_BUFFER::LIGHT]);
+
+			context->PSSetSamplers(0, 1, &sampler_state[STATE_SAMPLER::DEFAULT]);
+
+
 			lightingConstant.dLightDir = XMVector4Transform(lightingConstant.dLightDir, XMMatrixRotationY(XMConvertToRadians(50 * timer.Delta())));
 
-			
+
 			context->Map(constant_buffer[CONSTANT_BUFFER::MVP], 0, D3D11_MAP_WRITE_DISCARD, 0, &gpuBuffer);
 			*((MVP_t*)(gpuBuffer.pData)) = mvp;
 			context->Unmap(constant_buffer[CONSTANT_BUFFER::MVP], 0);
 
-			ZeroMemory(&gpuBuffer,sizeof(gpuBuffer));
+			mvp.modeling = XMMatrixIdentity()*XMMatrixTranslation(-5,0,0);
+			for (size_t i = 0; i < invJoints.size(); i++)	
+			{
+				myTransform.m[i] = XMMatrixMultiply(invJoints[i].global_xform, animClip.frames[animStep].joints[i].global_xform)*XMMatrixTranslation(-5, 0, 0);
+				//myTransform.m[i] = XMMatrixMultiply(XMMatrixInverse(nullptr, myJoints[i].global_xform), animClip.frames[animStep].joints[i].global_xform);
+				//myTransform.m[i] = XMMatrixMultiply(invJoints[i].global_xform, myJoints[i].global_xform);
+				//myTransform.m[i] = XMMatrixIdentity(); //myJoints[i].global_xform;
+				//myTransform.m[i] = invJoints[i].global_xform;
+			}
+
+			ZeroMemory(&gpuBuffer, sizeof(gpuBuffer));
+			hr = context->Map(constant_buffer[CONSTANT_BUFFER::TRANSFORM], 0, D3D11_MAP_WRITE_DISCARD, 0, &gpuBuffer);
+			*((mTransform*)(gpuBuffer.pData)) = myTransform;
+			context->Unmap(constant_buffer[CONSTANT_BUFFER::TRANSFORM], 0);
+
+			ZeroMemory(&gpuBuffer, sizeof(gpuBuffer));
 			hr = context->Map(constant_buffer[CONSTANT_BUFFER::LIGHT], 0, D3D11_MAP_WRITE_DISCARD, 0, &gpuBuffer);
 			*((lightCons*)(gpuBuffer.pData)) = lightingConstant;
 			context->Unmap(constant_buffer[CONSTANT_BUFFER::LIGHT], 0);
 
-			context->DrawIndexed(mageIndex.size(), 0, 0);
 
+
+			context->DrawIndexed(mageSkinnedIndex.size(), 0, 0);
 			swapchain->Present(1, 0);
 		}
 
@@ -296,6 +355,9 @@ namespace end
 				safe_release(ptr);
 
 			for (auto& ptr : player_texture_resource)
+				safe_release(ptr);
+
+			for (auto& ptr : sampler_state)
 				safe_release(ptr);
 
 			safe_release(context);
@@ -449,6 +511,19 @@ namespace end
 			assert(!FAILED(hr));
 		}
 
+		void create_sampler_state()
+		{
+			D3D11_SAMPLER_DESC sampDesc = {};
+			sampDesc.Filter = D3D11_FILTER_ANISOTROPIC;
+			sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+			sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+			sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+			sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+			sampDesc.MinLOD = 0;
+			sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+			HRESULT hr = device->CreateSamplerState(&sampDesc, &sampler_state[STATE_SAMPLER::DEFAULT]);
+		}
 		void create_shaders()
 		{
 
@@ -522,6 +597,53 @@ namespace end
 				{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 			};
 			device->CreateInputLayout(InputLayout1, 4, vs_mesh.data(), vs_mesh.size(), &input_layout[INPUT_LAYOUT::SIMPLEMESH]);
+
+
+			load_fbx_model_skinned("..//Assets//BattleMageRun.bin", mageSkinnedVert, mageSkinnedIndex);
+
+
+			ZeroMemory(&BufferDesc, sizeof(BufferDesc));
+			BufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+			BufferDesc.ByteWidth = sizeof(skinnedVert) * mageSkinnedVert.size();
+			BufferDesc.CPUAccessFlags = NULL;
+			BufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+			BufferDesc.MiscFlags = 0;
+			BufferDesc.StructureByteStride = 0;
+			ZeroMemory(&VerticesData, sizeof(VerticesData));
+			VerticesData.pSysMem = mageSkinnedVert.data();
+			hr = device->CreateBuffer(&BufferDesc, &VerticesData, &vertex_buffer[VERTEX_BUFFER::SKINNEDMESH]);
+
+			ZeroMemory(&BufferDesc, sizeof(BufferDesc));
+			BufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+			BufferDesc.ByteWidth = sizeof(uint32_t) * mageSkinnedIndex.size();
+			BufferDesc.CPUAccessFlags = NULL;
+			BufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+			BufferDesc.MiscFlags = 0;
+			BufferDesc.StructureByteStride = 0;
+			ZeroMemory(&VerticesData, sizeof(VerticesData));
+			VerticesData.pSysMem = mageSkinnedIndex.data();
+			hr = device->CreateBuffer(&BufferDesc, &VerticesData, &index_buffer[INDEX_BUFFER::SKINNEDMESH]);
+
+			binary_blob_t vs_skinnedmesh = load_binary_blob("vs_skinnedMesh.cso");
+
+			hr = device->CreateVertexShader(vs_skinnedmesh.data(), vs_skinnedmesh.size(), NULL, &vertex_shader[VERTEX_SHADER::SKINNEDMESH]);
+
+			D3D11_INPUT_ELEMENT_DESC InputLayout2[] =
+			{
+				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+				{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+				{ "BLENDWEIGHTS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+				{ "BLENDINDICES", 0, DXGI_FORMAT_R32G32B32A32_SINT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			};
+			hr = device->CreateInputLayout(InputLayout2, 5, vs_skinnedmesh.data(), vs_skinnedmesh.size(), &input_layout[INPUT_LAYOUT::SKINNEDMESH]);
+
+			//float3 pos : POSITION;
+			//float3 normal : NORMAL;
+			//float2 uv : TEXCOORD;
+			//float4 weights : BLENDWEIGHTS;
+			//int4 indices : BLENDINDICES;
+
 		}
 		
 		void load_material(const char* path, ID3D11ShaderResourceView** textureResource)
@@ -587,62 +709,17 @@ namespace end
 			light_bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 			light_bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 			hr = device->CreateBuffer(&mvp_bd, NULL, &constant_buffer[CONSTANT_BUFFER::LIGHT]);
+
+			D3D11_BUFFER_DESC mTransf;
+			ZeroMemory(&mTransf, sizeof(mTransf));
+
+			mTransf.Usage = D3D11_USAGE_DYNAMIC;
+			mTransf.ByteWidth = sizeof(mTransform);
+			mTransf.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+			mTransf.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+			hr = device->CreateBuffer(&mTransf, NULL, &constant_buffer[CONSTANT_BUFFER::TRANSFORM]);
 		}
 
-		void load_pose(const char* path, std::vector<joint>& poseJoint)
-		{
-			std::fstream load{ path, std::ios_base::in | std::ios_base::binary };
-
-			assert(load.is_open());
-
-			if (!load.is_open())
-			{
-				assert(false);
-				return;
-			}
-			uint32_t size;
-			load.read((char*)&size, sizeof(uint32_t));
-			poseJoint.resize(size);
-			load.read((char*)poseJoint.data(), sizeof(joint) * poseJoint.size());
-			
-			for (size_t i = 0; i < poseJoint.size(); i++)
-			{
-				poseJoint[i].global_xform = poseJoint[i].global_xform* XMMatrixTranslation(-5, 0, 0)* XMMatrixRotationY(XMConvertToRadians(180));
-			}
-			
-		
-			load.close();
-		}
-
-		void load_animation(const char* path, anim_clip& myAnim)
-		{
-			std::fstream load{ path, std::ios_base::in | std::ios_base::binary };
-
-			assert(load.is_open());
-
-			if (!load.is_open())
-			{
-				assert(false);
-				return;
-			}
-			uint32_t size;
-			load.read((char*)&myAnim.duration,sizeof(double));
-			load.read((char*)&size, sizeof(uint32_t));
-			myAnim.frames.resize(size);
-			for (uint32_t i = 0; i < size; i++)
-			{
-				uint32_t jointSize;
-				load.read((char*)&jointSize, sizeof(uint32_t));
-				myAnim.frames[i].joints.resize(jointSize);
-				load.read((char*)myAnim.frames[i].joints.data(), sizeof(joint) * myAnim.frames[i].joints.size());
-				for (size_t j = 0; j < myAnim.frames[i].joints.size(); j++)
-				{
-					myAnim.frames[i].joints[j] .global_xform = myAnim.frames[i].joints[j].global_xform * XMMatrixTranslation(5, 0, 0) * XMMatrixRotationY(XMConvertToRadians(180));
-				}
-				load.read((char*)&myAnim.frames[i].time, sizeof(double));
-			}
-			load.close();
-		}
 		void create_debug_renderer()
 		{
 			
@@ -659,8 +736,6 @@ namespace end
 			VerticesData.pSysMem = debug_renderer::get_line_verts();
 			device->CreateBuffer(&BufferDesc, &VerticesData, &vertex_buffer[VERTEX_BUFFER::COLORED_VERTEX]);
 		}
-
-
 
 		void UpdateGrid()
 		{
@@ -721,16 +796,29 @@ namespace end
 			}
 
 			//Draw T pose
-			for (size_t i = 0; i < myJoint.size(); i++)
+			for (size_t i = 0; i < myJoints.size(); i++)
 			{
 
-				DrawPoseTransform(myJoint[i]);
+				DrawPoseTransform(myJoints[i]);
 				XMFLOAT3 pos1;
 				XMFLOAT3 pos2;
-				XMStoreFloat3(&pos1, myJoint[i].global_xform.r[3]);
-				if (myJoint[i].parent_index != -1)
+				XMStoreFloat3(&pos1, myJoints[i].global_xform.r[3]);
+				if (myJoints[i].parent_index != -1)
 				{
-					XMStoreFloat3(&pos2, myJoint[myJoint[i].parent_index].global_xform.r[3]);
+					XMStoreFloat3(&pos2, myJoints[myJoints[i].parent_index].global_xform.r[3]);
+					debug_renderer::add_line(pos1, pos2, (XMFLOAT4)DirectX::Colors::Azure);
+				}
+			}
+
+			for (size_t i = 0; i < invJoints.size(); i++)
+			{
+				DrawPoseTransform(invJoints[i]);
+				XMFLOAT3 pos1;
+				XMFLOAT3 pos2;
+				XMStoreFloat3(&pos1, invJoints[i].global_xform.r[3]);
+				if (invJoints[i].parent_index != -1)
+				{
+					XMStoreFloat3(&pos2, invJoints[invJoints[i].parent_index].global_xform.r[3]);
 					debug_renderer::add_line(pos1, pos2, (XMFLOAT4)DirectX::Colors::Azure);
 				}
 			}

@@ -489,3 +489,212 @@ extern "C" FBXEXPORTER_API int export_animation(const char* fbx_file_path, const
 	return result;
 	
 }
+
+FBXEXPORTER_API int export_skinned_mesh(const char* fbx_file_path, const char* output_file_path, const char* mesh_name)
+{
+	int result = -1;
+	FbxScene* scene = nullptr;
+	FbxManager* sdk_manager = create_and_import(fbx_file_path, scene);
+
+	if (!scene)
+		return result;
+	FbxNode* childNode = nullptr;
+	int childCount = scene->GetRootNode()->GetChildCount();
+	for (int i = 0; i < childCount; i++)
+	{
+		childNode = scene->GetRootNode()->GetChild(i);
+		FbxMesh* mesh = childNode->GetMesh();
+		if (mesh)
+		{
+			const char* name = mesh->GetName();
+			if (!mesh_name || mesh_name == mesh->GetName())
+			{
+
+				const int MAX_INFLUENCES = 4;
+				using influence_set = std::array<end::influence, MAX_INFLUENCES>;
+				std::vector<influence_set> control_point_influences;
+				control_point_influences.resize(mesh->GetControlPointsCount());
+				std::vector<end::fbx_Joint> joints;
+
+				int posecount = scene->GetPoseCount();
+				FbxPose* pose = scene->GetPose(0);
+				FbxMesh* poseMesh = pose->GetNode(0)->GetMesh();
+				if (pose->IsBindPose())
+				{
+					posecount = pose->GetCount();
+					for (int i = 0; i < posecount; i++)
+					{
+						FbxSkeleton* skele = pose->GetNode(i)->GetSkeleton();
+						if (skele && skele->IsSkeletonRoot())
+						{
+							end::fbx_Joint joint;
+							joint.node = pose->GetNode(i);
+							joint.parent_index = -1;
+							joints.push_back(joint);
+							for (int j = 0; j < joints.size(); j++)
+							{
+								for (int k = 0; k < joints[j].node->GetChildCount(); k++)
+								{
+									skele = joints[j].node->GetChild(k)->GetSkeleton();
+									if (skele)
+									{
+										joint.node = joints[j].node->GetChild(k);
+										joint.parent_index = j;
+										joints.push_back(joint);
+									}
+								}
+							}
+							break;
+						}
+					}
+
+					int deformerCount = poseMesh->GetDeformerCount();
+					for (int i = 0; i < deformerCount; i++)
+					{
+						FbxDeformer* skin = poseMesh->GetDeformer(i);
+						if (skin->Is<FbxSkin>())
+						{
+							FbxSkin* newSkin = (FbxSkin*)skin;
+							int clusterCount = newSkin->GetClusterCount();
+							for (int j = 0; j < clusterCount; j++)
+							{
+								FbxCluster* cluster = newSkin->GetCluster(j);
+								for (int k = 0; k < joints.size(); k++)
+								{
+									if (joints[k].node == cluster->GetLink())
+									{
+										int indexCount = cluster->GetControlPointIndicesCount();
+										double* weights = cluster->GetControlPointWeights();
+										int* indexArray = cluster->GetControlPointIndices();
+										for (int l = 0; l < indexCount; l++)
+										{
+											end::influence influence_to_add{ k, (float)weights[l] };
+											influence_set set = control_point_influences[indexArray[l]];
+
+											int min = -1;
+											for (int m = 0; m < MAX_INFLUENCES; m++)
+											{
+												if (set[m].weight < influence_to_add.weight)
+												{
+													if (min < 0)
+														min = m;
+													else if (set[m].weight < set[min].weight)
+														min = m;
+												}
+											}
+											if (min > -1)
+											{
+												set[min] = influence_to_add;
+											}
+											control_point_influences[indexArray[l]] = set;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				end::skinned_mesh simpleMesh;
+
+				// getting vertices and count from fbx
+				simpleMesh.vert_count = mesh->GetControlPointsCount();
+				simpleMesh.verts = new end::skinned_vert[simpleMesh.vert_count];
+				for (uint32_t j = 0; j < simpleMesh.vert_count; j++)
+				{
+					simpleMesh.verts[j].pos = DirectX::XMFLOAT3{ (float)mesh->GetControlPointAt(j).mData[0], (float)mesh->GetControlPointAt(j).mData[1], (float)mesh->GetControlPointAt(j).mData[2]};
+				}
+				// getting indices array and count from fbx
+				simpleMesh.index_count = mesh->GetPolygonVertexCount();
+				simpleMesh.indices = (uint32_t*)mesh->GetPolygonVertices();
+
+				// getting uv's from fbx
+				DirectX::XMFLOAT2* UV = new DirectX::XMFLOAT2[simpleMesh.index_count];
+				for (int j = 0; j < mesh->GetPolygonCount(); j++)//polygon(=mostly rectangle) count
+				{
+					FbxLayerElementArrayTemplate<FbxVector2>* uvVertices = NULL;
+					mesh->GetTextureUV(&uvVertices);
+					for (int k = 0; k < mesh->GetPolygonSize(j); k++)//retrieves number of vertices in a polygon
+					{
+						FbxVector2 uv = uvVertices->GetAt(mesh->GetTextureUVIndex(j, k));
+						UV[3 * j + k] = DirectX::XMFLOAT2((float)uv.mData[0], 1 - (float)uv.mData[1]);
+					}
+				}
+
+				// Get tangents and binormals
+				FbxLayerElementArrayTemplate<FbxVector4>* fbxTangents;
+				//FbxLayerElementArrayTemplate<FbxVector4> *fbxBinormal;
+				mesh->GetTangents(&fbxTangents);
+				//mesh->GetBinormals(&fbxBinormal);
+
+				// getting normals from fbx
+				FbxArray<FbxVector4> normalsVec;
+				mesh->GetPolygonVertexNormals(normalsVec);
+
+				end::skinned_vert* verts2 = new end::skinned_vert[simpleMesh.index_count];
+				simpleMesh.vert_count = simpleMesh.index_count;
+				// re-index
+				for (uint32_t j = 0; j < simpleMesh.index_count; j++)
+				{
+					verts2[j] = simpleMesh.verts[simpleMesh.indices[j]];
+
+					verts2[j].norm = DirectX::XMFLOAT3{ (float)normalsVec[j].mData[0], (float)normalsVec[j].mData[1], (float)normalsVec[j].mData[2] };
+					verts2[j].tex = UV[j];
+
+					influence_set set = control_point_influences[simpleMesh.indices[j]];
+
+					verts2[j].indices[0] = set[0].joint;
+					verts2[j].indices[1] = set[1].joint;
+					verts2[j].indices[2] = set[2].joint;
+					verts2[j].indices[3] = set[3].joint;
+
+					//DirectX::XMVECTOR normal{ set[0].weight, set[1].weight, set[2].weight, set[3].weight };
+					//normal = DirectX::XMVector4Normalize(normal);
+					//verts2[j].weights = { XMVectorGetX(normal), XMVectorGetY(normal), XMVectorGetZ(normal), XMVectorGetW(normal) };
+
+					float sum = set[0].weight + set[1].weight + set[2].weight + set[3].weight;
+					verts2[j].weights = XMFLOAT4{ set[0].weight / sum,set[1].weight / sum,set[2].weight / sum,set[3].weight / sum };
+					
+
+				};
+
+				delete[] simpleMesh.verts;
+				simpleMesh.verts = verts2;
+
+				unsigned int numIndices = 0;
+				std::unordered_map<end::skinned_vert, unsigned int, end::fnv1a> uniqueValues;
+				std::vector<end::skinned_vert> vertices;
+				std::vector<unsigned int> indicesVector;
+
+				for (uint32_t j = 0; j < simpleMesh.index_count; j++)
+				{
+					end::skinned_vert v = simpleMesh.verts[j];
+					if (uniqueValues.count(v) == 0)
+					{
+						uniqueValues.insert({ v, numIndices });
+						vertices.push_back(v);
+						indicesVector.push_back(numIndices++);
+					}
+					else
+						indicesVector.push_back(uniqueValues[v]);
+				}
+
+				std::ofstream file(output_file_path, std::ios_base::binary | std::ios_base::trunc);
+				if (file.is_open())
+				{
+					int size = (int)vertices.size();
+					file.write((const char*)&size, sizeof(int));
+					file.write((const char*)vertices.data(), sizeof(end::skinned_vert) * vertices.size());
+					size = (int)indicesVector.size();
+					file.write((const char*)&size, sizeof(int));
+					file.write((const char*)indicesVector.data(), sizeof(int) * indicesVector.size());
+				}
+				file.close();
+
+				delete[] verts2;
+				delete[] UV;
+			}
+		}
+	}
+	return 0;
+}
